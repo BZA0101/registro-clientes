@@ -1,6 +1,6 @@
 {
-  "name": "Mis Clientes",
-  "short_name": "Clientes",
+  "name": "Análisis de Ventas",
+  "short_name": "Ventas",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f7f3ee",
