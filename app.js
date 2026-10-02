@@ -6,8 +6,8 @@ const CONFIG = {
   SCRIPT_URL: localStorage.getItem('scriptUrl') || '',
   // La misma clave que pusiste en CLAVE en el Apps Script (si la pusiste).
   TOKEN: localStorage.getItem('syncToken') || '',
-  // URL del servidor en Render (ej. https://clientes.onrender.com). Vacio = mismo origen.
-  API_URL: localStorage.getItem('apiUrl') || '',
+  // URL del servidor en Render. Vacio = mismo origen (localhost).
+  API_URL: localStorage.getItem('apiUrl') || 'https://registro-clientes-54nw.onrender.com',
 };
 
 const apiFetch = (path, opts) => fetch(CONFIG.API_URL + path, opts);
