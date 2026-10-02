@@ -1,0 +1,8 @@
+server/
+api/
+node_modules/
+.git/
+.github/
+*.md
+render.yaml
+vercel.json

@@ -1,0 +1,17 @@
+name: Recordatorio diario 8pm
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 8:00 pm hora CDMX (UTC-6)
+  workflow_dispatch:
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Despertar Render y enviar notificaciones
+        run: |
+          for i in 1 2 3; do
+            curl -sf -m 120 -X POST "$RENDER_URL/api/send-push" && break || sleep 20
+          done
+        env:
+          RENDER_URL: ${{ secrets.RENDER_URL }}
