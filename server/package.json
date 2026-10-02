@@ -1,0 +1,17 @@
+{
+  "name": "clientes-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Servidor para Registro de Clientes: analisis de TikTok Live + push diario",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "node-cron": "^4.6.0",
+    "tiktok-live-connector": "^2.5.0",
+    "web-push": "^3.6.7"
+  }
+}

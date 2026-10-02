@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clientes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#f7f3ee">
+<title>Clientes</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="splash">
+  <svg id="splash-heart" viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.8-9.8-9C.7 8.9 2.4 5.5 5.7 5.5c2 0 3.4 1.1 4.1 2.3.2.4.5.4.7 0 .7-1.2 2.1-2.3 4.1-2.3 3.3 0 5 3.4 3.5 6.5-2.3 4.2-9.8 9-9.8 9z"/></svg>
+  <p class="splash-hi">Bienvenida mi amor</p>
+  <p class="splash-love">te amo</p>
+</div>
+<header id="topbar">
+  <div>
+    <p id="screen-date"></p>
+    <h1 id="screen-title">Hoy</h1>
+  </div>
+  <span id="sync-badge" class="sync-badge hidden"></span>
+</header>
+
+<div id="loading" class="hidden">
+  <div class="loading-card">
+    <div class="spinner"></div>
+    <p id="loading-msg">Cargando, espera por favor…</p>
+    <p id="loading-sub" class="hidden">La primera vez puede tardar ~40 segundos</p>
+  </div>
+</div>
+<main id="app"></main>
+
+<nav id="tabbar">
+  <button class="tab active" data-screen="hoy">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+    <span>Hoy</span>
+  </button>
+  <button class="tab" data-screen="clientes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c.8-3.9 3.8-6 7.5-6s6.7 2.1 7.5 6"/></svg>
+    <span>Clientes</span>
+  </button>
+  <button class="tab" data-screen="live">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.6 4.6a10.4 10.4 0 0 0 0 14.8M19.4 4.6a10.4 10.4 0 0 1 0 14.8"/></svg>
+    <span>Live</span>
+  </button>
+  <button class="tab" data-screen="panel">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg>
+    <span>Panel</span>
+  </button>
+  <button class="tab" data-screen="ajustes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    <span>Ajustes</span>
+  </button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>
