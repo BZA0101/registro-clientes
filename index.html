@@ -61,5 +61,16 @@
 </nav>
 
 <script src="app.js"></script>
+<script>
+// Oculta el badge "Powered by Netlify" que el plan gratis inyecta
+(function () {
+  const kill = () => document.querySelectorAll('iframe').forEach(f => {
+    const s = (f.id || '') + (f.className || '') + (f.src || '') + (f.getAttribute('srcdoc') || '');
+    if (/netlify/i.test(s)) f.remove();
+  });
+  new MutationObserver(kill).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', kill);
+})();
+</script>
 </body>
 </html>
