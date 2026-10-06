@@ -843,14 +843,14 @@ const mdToHtml = t => esc(t)
 /* Pide el resumen IA al detener un live y lo pega en la vista */
 async function generarResumenIA(usuario, resumen) {
   if (!session || !resumen) return;
-  const tr = transcripts[usuario] || [];
+  const tr = (transcripts[usuario] && transcripts[usuario].length ? transcripts[usuario] : resumen.transcript) || [];
   delete transcripts[usuario];
   if (!tr.length && !resumen.comentarios) return;
   try {
     const r = await apiFetch('/api/live/resumen', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ usuario, metricas: resumen, transcript: tr }),
+      body: JSON.stringify({ usuario, metricas: resumen, transcript: tr, resumen_ia: resumen.resumen_ia || '' }),
     });
     const d = await r.json();
     if (d.resumen && liveResumen) { liveResumen.resumen_ia = d.resumen; if (screen === 'live') render(); }
@@ -920,12 +920,14 @@ function viewLiveCard(d) {
       '<div class="empty small">Escuchando comentarios con intención de compra…</div>'}
 
     <div class="section-title">Voz del live</div>
-    ${escuchando === d.usuario
-      ? `<p class="hint">Escuchando… acerca el teléfono a la bocina o pantalla donde suena el live.</p>
-         <button class="secondary" onclick="stopEscucha()">Dejar de escuchar</button>`
-      : `<button class="secondary" onclick="startEscucha('${esc(d.usuario)}')">${session ? 'Escuchar el audio del live' : 'Escuchar (necesita login)'}</button>`}
-    ${(transcripts[d.usuario] || []).length ? `<div class="card transcript">
-      ${transcripts[d.usuario].slice(-15).map(l => `<p><b>${fmtSeg(l.t)}</b>  ${esc(l.texto)}</p>`).join('')}
+    ${d.vozServidor
+      ? `<p class="hint">Capturando el audio del stream directo — no necesitas micrófono.</p>`
+      : escuchando === d.usuario
+        ? `<p class="hint">Escuchando… acerca el teléfono a la bocina o pantalla donde suena el live.</p>
+           <button class="secondary" onclick="stopEscucha()">Dejar de escuchar</button>`
+        : `<button class="secondary" onclick="startEscucha('${esc(d.usuario)}')">${session ? 'Escuchar el audio del live (micrófono)' : 'Escuchar (necesita login)'}</button>`}
+    ${((d.transcript && d.transcript.length ? d.transcript : transcripts[d.usuario]) || []).length ? `<div class="card transcript">
+      ${(d.transcript && d.transcript.length ? d.transcript : transcripts[d.usuario]).slice(-15).map(l => `<p><b>${fmtSeg(l.t)}</b>  ${esc(l.texto)}</p>`).join('')}
     </div>` : ''}
     <button class="destructive" onclick="stopLive('${esc(d.usuario)}')">Detener análisis de @${esc(d.usuario)}</button>`;
 }

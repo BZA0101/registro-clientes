@@ -12,6 +12,10 @@ const cron = require('node-cron');
 const webpush = require('web-push');
 const { TikTokLiveConnection } = require('tiktok-live-connector');
 
+const os = require('os');
+const { spawn } = require('child_process');
+const ffmpegBin = require('ffmpeg-static');
+
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
@@ -218,16 +222,11 @@ app.post('/api/live/transcribe', express.raw({ type: () => true, limit: '15mb' }
 });
 
 /* ---------- Groq: resumen IA del live (transcript + metricas) ---------- */
-app.post('/api/live/resumen', async (req, res) => {
-  if (!GROQ_KEY) return res.status(503).json({ error: 'Falta GROQ_API_KEY en el servidor' });
-  const user = await authUser(req);
-  if (!user) return res.status(401).json({ error: 'Sin sesión' });
-  if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
-
-  const { usuario, metricas = {}, transcript = [] } = req.body || {};
+/* Resumen IA: lo usan el endpoint (cliente) y cerrarSesion (captura servidor) */
+async function generarResumenTexto(usuario, metricas = {}, transcript = []) {
+  if (!GROQ_KEY) return '';
   const texto = transcript.map(t => `[${t.t}s] ${t.texto}`).join('\n').slice(0, 15000);
-  if (!texto && !metricas.comentarios) return res.status(400).json({ error: 'Nada que resumir' });
-
+  if (!texto && !metricas.comentarios) return '';
   const prompt = `Eres un analista de ventas por redes sociales para un asesor inmobiliario.
 Analiza este live de TikTok de @${usuario}:
 
@@ -259,18 +258,31 @@ Responde en español, directo y accionable, con estas secciones:
       }),
     });
     const d = await r.json();
-    if (!r.ok) return res.status(502).json({ error: d.error && d.error.message || 'Groq falló' });
-    const resumen = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || '';
-    /* Guardar el reporte completo ligado al usuario */
-    if (user.id) sbRest('lives', { method: 'POST', body: {
-      user_id: user.id, usuario_tiktok: usuario, inicio: new Date(metricas.inicio || Date.now()),
-      minutos: metricas.minutos || 0, pico: metricas.pico || 0, comentarios: metricas.comentarios || 0,
-      likes: metricas.likes || 0, regalos: metricas.regalos || 0, leads: metricas.leads || 0,
-      keywords: metricas.keywords || [], palabras: metricas.palabras || [],
-      transcript, resumen_ia: resumen, razon: metricas.razon || '',
-    } });
-    res.json({ resumen });
-  } catch { res.status(502).json({ error: 'No se pudo generar el resumen' }); }
+    return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
+  } catch { return ''; }
+}
+
+app.post('/api/live/resumen', async (req, res) => {
+  if (!GROQ_KEY) return res.status(503).json({ error: 'Falta GROQ_API_KEY en el servidor' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
+
+  const { usuario, metricas = {}, transcript = [] } = req.body || {};
+  let resumen = req.body.resumen_ia || '';
+  if (!resumen) {
+    resumen = await generarResumenTexto(usuario, metricas, transcript);
+    if (!resumen) return res.status(400).json({ error: 'Nada que resumir' });
+  }
+  /* Guardar el reporte completo ligado al usuario */
+  if (user.id) sbRest('lives', { method: 'POST', body: {
+    user_id: user.id, usuario_tiktok: usuario, inicio: new Date(metricas.inicio || Date.now()),
+    minutos: metricas.minutos || 0, pico: metricas.pico || 0, comentarios: metricas.comentarios || 0,
+    likes: metricas.likes || 0, regalos: metricas.regalos || 0, leads: metricas.leads || 0,
+    keywords: metricas.keywords || [], palabras: metricas.palabras || [],
+    transcript, resumen_ia: resumen, razon: metricas.razon || '',
+  } }).catch(() => {});
+  res.json({ resumen });
 });
 
 /* ---------- Stripe: planes ---------- */
@@ -400,7 +412,97 @@ const sessionStatus = s => ({
   leads: s.leads,
   keywords: topEntries(s.kw, 6),
   palabras: topEntries(s.words, 15),
+  vozServidor: !!s.ff,                       // true = el audio se capta solo
+  transcript: (s.transcript || []).slice(-15),
 });
+
+/* ---------- Captura del audio del stream en el servidor ---------- */
+/* Saca la URL del stream de la pagina publica del live (fragil: TikTok
+   puede bloquear; si falla, el micro del cliente sigue funcionando) */
+async function obtenerStreamUrl(usuario) {
+  try {
+    const r = await fetch(`https://www.tiktok.com/@${usuario}/live`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+    });
+    const html = await r.text();
+    const m = html.match(/"stream_url"\s*:\s*(\{.+?\})\s*,\s*"/s);
+    if (!m) return null;
+    const su = JSON.parse(m[1]);
+    if (typeof su.hls_pull_url === 'string' && su.hls_pull_url) return su.hls_pull_url;
+    const flv = su.flv_pull_url || {};
+    return flv.FULL_HD1 || flv.HD1 || flv.SD1 || flv.ORIGIN || null;
+  } catch { return null; }
+}
+
+async function transcribirAudio(buf) {
+  if (!GROQ_KEY) return '';
+  try {
+    const fd = new FormData();
+    fd.append('file', new Blob([buf], { type: 'audio/mpeg' }), 'seg.mp3');
+    fd.append('model', 'whisper-large-v3-turbo');
+    fd.append('language', 'es');
+    fd.append('response_format', 'json');
+    const r = await fetch(`${GROQ_API}/audio/transcriptions`, {
+      method: 'POST', headers: { Authorization: `Bearer ${GROQ_KEY}` }, body: fd,
+    });
+    const d = await r.json();
+    return (d.text || '').trim();
+  } catch { return ''; }
+}
+
+/* ffmpeg -> mp3 en segmentos de 30s -> cada uno a Whisper */
+function capturarStream(s, streamUrl) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'live-'));
+  s.ffDir = dir;
+  s.ff = spawn(ffmpegBin, [
+    '-loglevel', 'error',
+    '-i', streamUrl,
+    '-vn', '-ac', '1', '-ar', '16000', '-b:a', '48k',
+    '-f', 'segment', '-segment_time', '30', '-reset_timestamps', '1',
+    path.join(dir, 'seg_%04d.mp3'),
+  ]);
+  s.ff.on('error', () => { s.ff = null; });
+  s.ff.on('exit', () => { s.ff = null; });
+  const vistos = new Set();
+  s.ffTimer = setInterval(() => {
+    let files = [];
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.mp3')).sort(); } catch { return; }
+    for (const f of files.slice(0, -1)) {   // el ultimo aun se esta escribiendo
+      if (vistos.has(f)) continue;
+      vistos.add(f);
+      const n = parseInt(f.match(/\d+/)[0], 10) || 0;
+      const t = (n - 1) * 30;
+      try {
+        const buf = fs.readFileSync(path.join(dir, f));
+        transcribirAudio(buf).then(txt => {
+          if (txt) { s.transcript.push({ t, texto: txt }); }
+        });
+      } catch {}
+    }
+  }, 8000);
+}
+
+function detenerCaptura(s) {
+  if (s.ffTimer) clearInterval(s.ffTimer);
+  if (s.ff) try { s.ff.kill('SIGKILL'); } catch {}
+  /* ultimo segmento pendiente */
+  try {
+    const files = fs.readdirSync(s.ffDir).filter(f => f.endsWith('.mp3')).sort();
+    const ultimo = files[files.length - 1];
+    if (ultimo) {
+      const n = parseInt(ultimo.match(/\d+/)[0], 10) || 0;
+      const buf = fs.readFileSync(path.join(s.ffDir, ultimo));
+      return transcribirAudio(buf).then(txt => {
+        if (txt) s.transcript.push({ t: (n - 1) * 30, texto: txt });
+      }).finally(() => { try { fs.rmSync(s.ffDir, { recursive: true }); } catch {} });
+    }
+  } catch {}
+  try { fs.rmSync(s.ffDir || '', { recursive: true }); } catch {}
+  return Promise.resolve();
+}
 
 app.post('/api/live/start', async (req, res) => {
   if (STRIPE_KEY) {   // con monetizacion activa el analisis de lives es Pro
@@ -420,8 +522,16 @@ app.post('/api/live/start', async (req, res) => {
   }
 
   const s = { usuario, conn, inicio: Date.now(), viewers: 0, pico: 0, comentarios: 0,
-    likes: 0, regalos: 0, seguidores: 0, joins: 0, leads: [], kw: {}, words: {} };
+    likes: 0, regalos: 0, seguidores: 0, joins: 0, leads: [], kw: {}, words: {},
+    transcript: [] };
   sessions.set(usuario, s);
+
+  /* Captura del audio del stream directo en el servidor (sin micro) */
+  if (GROQ_KEY && ffmpegBin) {
+    obtenerStreamUrl(usuario)
+      .then(u => { if (u && sessions.has(usuario)) capturarStream(s, u); })
+      .catch(() => {});
+  }
 
   conn.on('roomUser', d => {
     s.viewers = Number(d.total) || s.viewers;
@@ -458,25 +568,28 @@ app.get('/api/live/status', (req, res) => {
   res.json({ activos: [...sessions.values()].map(sessionStatus) });
 });
 
-app.post('/api/live/stop', (req, res) => {
+app.post('/api/live/stop', async (req, res) => {
   const usuario = String(req.body.usuario || '').replace(/^@/, '').trim();
-  if (usuario && sessions.has(usuario)) return res.json(cerrarSesion(usuario, 'Detenido'));
-  if (!usuario && sessions.size) return res.json(cerrarSesion([...sessions.keys()][0], 'Detenido'));
+  if (usuario && sessions.has(usuario)) return res.json(await cerrarSesion(usuario, 'Detenido'));
+  if (!usuario && sessions.size) return res.json(await cerrarSesion([...sessions.keys()][0], 'Detenido'));
   res.json({ activo: false });
 });
 
 app.get('/api/live/historial', (req, res) => res.json(data.lives.slice(-20).reverse()));
 
-function cerrarSesion(usuario, razon) {
+async function cerrarSesion(usuario, razon) {
   const s = sessions.get(usuario); if (!s) return { activo: false };
   sessions.delete(usuario);
   try { s.conn.disconnect(); } catch {}
+  await detenerCaptura(s);
   const min = Math.round((Date.now() - s.inicio) / 60000);
   const resumen = {
     usuario, inicio: s.inicio, minutos: min, pico: s.pico, comentarios: s.comentarios,
     likes: s.likes, regalos: s.regalos, seguidores: s.seguidores, joins: s.joins,
-    leads: s.leads.length, keywords: topEntries(s.kw, 6), palabras: topEntries(s.words, 15), razon,
+    leads: s.leads.length, keywords: topEntries(s.kw, 6), palabras: topEntries(s.words, 15),
+    razon, transcript: s.transcript || [],
   };
+  resumen.resumen_ia = await generarResumenTexto(usuario, resumen, resumen.transcript);
   data.lives.push(resumen); persist();
   enviarSheet({
     nombre: `LIVE @${usuario}`, telefono: '', estado: 'Live', motivo: '',

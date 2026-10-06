@@ -78,6 +78,20 @@ WA_VERIFY_TOKEN=<cualquier clave que elijas>
 GROQ_API_KEY=<key de console.groq.com>    # transcripcion + resumen IA de lives
 ```
 
+## Escucha del live (voz del streamer)
+
+Con `GROQ_API_KEY` el servidor intenta **capturar el audio del live
+directamente** (ffmpeg baja el stream de TikTok → segmentos de 30s →
+Groq Whisper) y genera el **resumen IA automáticamente al cerrar el análisis**,
+sin que el usuario haga nada.
+
+- No requiere micrófono ni que la app esté abierta — funciona también para
+  lives de la competencia analizados en segundo plano.
+- Si TikTok bloquea la extracción de la URL del stream, el análisis de chat
+  sigue igual y el botón de micrófono (captura local) sigue disponible
+  como respaldo.
+- La transcripción y el resumen se guardan en la tabla `lives` de Supabase.
+
 ## Cobrar con Stripe (plan Pro)
 
 Sin `STRIPE_KEY` el servidor corre en modo abierto (todo gratis, para dev).
