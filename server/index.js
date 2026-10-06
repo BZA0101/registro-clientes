@@ -130,6 +130,52 @@ app.post('/api/wa/webhook', (req, res) => {
   }).catch(() => {});
 });
 
+/* Crea el lead (o anota mensaje si el numero ya existe). Lo usan el
+   webhook de Meta y el endpoint de captura Tasker/Atajos. */
+async function crearLeadWa(userId, tel, nombre, texto) {
+  const hoy = new Date().toISOString();
+  const fecha = hoy.slice(0, 10);
+  const existe = await sbRest(`clientes?user_id=eq.${userId}&telefono=eq.${tel}&select=id,notas`);
+  if (existe && existe.length) {
+    const c = existe[0];
+    await sbRest(`clientes?id=eq.${c.id}`, {
+      method: 'PATCH',
+      body: { notas: ((c.notas || '') + `\nWA: ${texto}`).trim().slice(0, 2000), updated_at: hoy },
+    });
+    return 'anotado';
+  }
+  await sbRest('clientes', {
+    method: 'POST',
+    body: {
+      id: 'wa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      user_id: userId,
+      nombre: nombre || tel, telefono: tel,
+      estado: 'nuevo', origen: 'whatsapp', primer_mensaje: texto,
+      motivo: '', seguimiento: '', notas: '',
+      fecha, estado_fecha: fecha, creado: hoy, updated_at: hoy,
+    },
+  });
+  return 'creado';
+}
+
+/* Captura universal SIN Meta: Tasker (Android, lee notificaciones) o
+   Atajos (iOS, portapapeles) hacen POST { de, texto } y aqui se crea el lead.
+   El :uid es el user_id del asesor — se muestra en Ajustes. */
+app.post('/api/leads/:uid', async (req, res) => {
+  const uid = String(req.params.uid || '');
+  if (!/^[0-9a-f-]{20,}$/i.test(uid)) return res.status(400).json({ error: 'id inválido' });
+  const { de = '', texto = '' } = req.body || {};
+  const fuente = `${de} ${texto}`;
+  const m = fuente.match(/\+?[\d][\d\s\-()]{7,}\d/);
+  if (!m) return res.status(400).json({ error: 'no encontré número', recibido: fuente.slice(0, 80) });
+  const tel = m[0].replace(/\D/g, '');
+  if (tel.length < 8 || tel.length > 15) return res.status(400).json({ error: 'número inválido' });
+  /* si el titulo trae texto ademas del numero, es el nombre del contacto */
+  const nombre = de.replace(m[0], '').replace(/[+()\-]/g, ' ').replace(/\s+/g, ' ').trim();
+  const r = await crearLeadWa(uid, tel, nombre || tel, (texto || de || 'WhatsApp').trim().slice(0, 500));
+  res.json({ ok: true, resultado: r, telefono: tel });
+});
+
 async function procesarWa(value, msg) {
   const phoneId = value.metadata && value.metadata.phone_number_id;
   const from = msg.from || '';
@@ -142,31 +188,7 @@ async function procesarWa(value, msg) {
   const conn = conns && conns[0];
   if (!conn) return;
 
-  const hoy = new Date().toISOString();
-  const fecha = hoy.slice(0, 10);
-
-  /* Si el numero ya es cliente, se anota el mensaje y sube a Nuevo otra vez */
-  const existe = await sbRest(`clientes?user_id=eq.${conn.user_id}&telefono=eq.${from}&select=id,notas`);
-  if (existe && existe.length) {
-    const c = existe[0];
-    await sbRest(`clientes?id=eq.${c.id}`, {
-      method: 'PATCH',
-      body: { notas: ((c.notas || '') + `\nWA: ${texto}`).trim().slice(0, 2000), updated_at: hoy },
-    });
-    return;
-  }
-
-  await sbRest('clientes', {
-    method: 'POST',
-    body: {
-      id: 'wa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      user_id: conn.user_id,
-      nombre, telefono: from,
-      estado: 'nuevo', origen: 'whatsapp', primer_mensaje: texto,
-      motivo: '', seguimiento: '', notas: '',
-      fecha, estado_fecha: fecha, creado: hoy, updated_at: hoy,
-    },
-  });
+  await crearLeadWa(conn.user_id, from, nombre, texto);
 
   /* Auto-respuesta solo al primer contacto del lead */
   const perfs = await sbRest(`perfiles?user_id=eq.${conn.user_id}&select=wa_autoreply`);

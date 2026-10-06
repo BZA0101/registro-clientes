@@ -1115,6 +1115,17 @@ function viewAjustes() {
       ? `<button class="secondary" onclick="abrirPortal()">Administrar suscripción</button>`
       : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
 
+    <div class="section-title">Captura automática de leads</div>
+    ${session ? `
+    <p class="hint">Todo lo que llegue a esta URL crea el lead solo en <b>Nuevos</b>. No requiere Meta:</p>
+    <div class="card" style="word-break:break-all;font-size:12px;font-family:monospace;padding:10px">${esc(CONFIG.API_URL)}/api/leads/${esc(session.user.id)}</div>
+    <p class="hint"><b>Android — automático con Tasker</b> (~$70 MXN una vez):<br>
+      1. Perfil → Evento → UI → Notification → dueño: <b>WhatsApp</b><br>
+      2. Tarea → Net → HTTP Request → POST a la URL de arriba, cuerpo JSON:<br>
+      <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
+      Cuando un número no guardado te escriba, el lead se crea solo.</p>
+    <p class="hint"><b>iPhone — Atajos</b>: copia el número del cliente → corre un Atajo que haga POST con <code>{"de":&lt;portapapeles&gt;}</code> a la misma URL.</p>` : ''}
+
     <div class="section-title">WhatsApp automático</div>
     ${esPro() ? `
     <div class="list form">
