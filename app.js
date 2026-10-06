@@ -463,7 +463,7 @@ async function ensurePerfil() {
   } catch {}
 }
 
-let perfil = null, waConn = null;
+let perfil = null;
 let monetizacion = false;   // true cuando el servidor tiene Stripe configurado
 const esPro = () => !monetizacion || (perfil && perfil.plan === 'pro');
 
@@ -498,7 +498,6 @@ async function loadPerfil() {
   if (!session || !sb) return;
   try {
     perfil = (await sb.from('perfiles').select('*').eq('user_id', session.user.id).maybeSingle()).data;
-    waConn = (await sb.from('wa_conexiones').select('*').eq('user_id', session.user.id).maybeSingle()).data;
   } catch {}
 }
 
@@ -1116,39 +1115,28 @@ function viewAjustes() {
       ? `<button class="secondary" onclick="abrirPortal()">Administrar suscripción</button>`
       : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
 
-    <div class="section-title">Captura automática de leads</div>
+    <div class="section-title">Leads de WhatsApp</div>
     ${session ? (() => {
       const guia = window._guiaCaptura || (esIOS() ? 'ios' : 'android');
       return `
-    <p class="hint">Todo lo que llegue a tu URL personal crea el lead solo en <b>Nuevos</b>. Sin Meta:</p>
+    <p class="hint">Cuando alguien te escribe por WhatsApp, su número se guarda solo en <b>Nuevos</b>.</p>
+    <button class="secondary" onclick="probarCaptura()">Probar — crear un lead de prueba</button>
+    <p class="hint" style="margin-top:14px"><b>Tu enlace personal</b> (lo usas en el paso de abajo):</p>
     <div class="card" style="word-break:break-all;font-size:12px;font-family:monospace;padding:10px">${esc(CONFIG.API_URL)}/api/leads/${esc(session.user.id)}</div>
     ${guia === 'ios' ? `
-    <p class="hint"><b>iPhone — Atajo "Nuevo lead"</b> (semi-automático, gratis):<br>
-      1. App Atajos → + → acción <b>Obtener portapapeles</b><br>
-      2. Acción <b>Obtener contenido de URL</b> → POST a tu URL → cuerpo JSON → campo <code>de</code> = Portapapeles<br>
-      3. Agrégalo a tu pantalla de inicio.<br>
-      Uso: copia el número del chat de WhatsApp → corre el atajo → lead creado.</p>` : `
-    <p class="hint"><b>Android — automático con Tasker</b> (~$70 MXN una vez):<br>
-      1. Perfil → Evento → UI → Notification → app: <b>WhatsApp</b><br>
-      2. Tarea → Net → HTTP Request → POST a tu URL → JSON: <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
-      Cuando un número no guardado te escriba, el lead se crea solo — aun con la pantalla apagada.</p>`}
+    <p class="hint"><b>En este iPhone</b> — atajo gratis:<br>
+      ① Abre la app <b>Atajos</b> → <b>+</b> → agrega la acción <b>Obtener portapapeles</b><br>
+      ② Agrega <b>Obtener contenido de URL</b> → método <b>POST</b> → pega tu enlace → cuerpo JSON → campo <code>de</code> = <b>Portapapeles</b><br>
+      ③ Pon el atajo en tu pantalla de inicio.<br>
+      <b>Uso:</b> en el chat mantén presionado el número → Copiar → corre el atajo → lead creado.</p>` : `
+    <p class="hint"><b>En este Android</b> — automático con <b>Tasker</b> (Play Store, ~$70 MXN una vez):<br>
+      ① Perfil → Evento → UI → <b>Notification</b> → app: <b>WhatsApp</b><br>
+      ② Tarea → Net → <b>HTTP Request</b> → POST → pega tu enlace → cuerpo:<br>
+      <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
+      Listo — cuando te escriba un número <b>que no tienes guardado</b>, el lead entra solo, aun con la pantalla apagada.</p>
+    <p class="hint">Ojo: si ya tienes el número en contactos, WhatsApp muestra su nombre y no el número — ese lead entra solo con nombre. Para probar usa un número que no tengas agregado.</p>`}
     <p class="hint" style="text-align:center"><a href="#" onclick="window._guiaCaptura='${guia === 'ios' ? 'android' : 'ios'}';render();return false">Ver guía para ${guia === 'ios' ? 'Android' : 'iPhone'}</a></p>`;})() : ''}
-
-    <div class="section-title">WhatsApp automático</div>
-    ${esPro() ? `
-    <div class="list form">
-      <label class="input-row"><span>Phone ID</span>
-        <input id="wa-phone" placeholder="123456789012345" autocomplete="off" autocapitalize="none" value="${esc((waConn && waConn.phone_number_id) || '')}"></label>
-      <label class="input-row"><span>Token</span>
-        <input id="wa-token" placeholder="Token permanente de Meta" autocomplete="off" autocapitalize="none" value="${esc((waConn && waConn.access_token) || '')}"></label>
-      <label class="input-row"><span>Número</span>
-        <input id="wa-num" placeholder="+52 55 1234 5678" value="${esc((waConn && waConn.display_number) || '')}"></label>
-      <label class="input-row full">
-        <textarea id="wa-reply" rows="2" placeholder="Auto-respuesta al primer mensaje (ej. ¡Hola! Gracias por escribir, en breve te contacto)">${esc((perfil && perfil.wa_autoreply) || '')}</textarea></label>
-    </div>
-    <button class="secondary" onclick="guardarWa()">${waConn ? 'Actualizar WhatsApp' : 'Conectar WhatsApp'}</button>
-    <p class="hint">Cuando alguien escriba a ese número, el lead se crea solo en <b>Nuevos</b> con su primer mensaje. Los datos salen de Meta for Developers → tu app → WhatsApp → API Setup.</p>`
-    : `<p class="hint">Los leads automáticos de WhatsApp son parte del <b>plan Pro</b>.</p>`}` : ''}
+    ` : ''}
 
     <div class="section-title">Exportar</div>
     <div class="list">
@@ -1308,33 +1296,24 @@ function guardarUrl() {
   screen = 'ok'; window._okMsg = 'Conexión guardada. Los registros llegarán a tu hoja.'; render();
 }
 
-async function guardarWa() {
+/* Simula un lead entrante para probar la captura sin configurar nada */
+async function probarCaptura() {
   if (!session) return;
-  const phoneId = field('wa-phone', '').trim();
-  const token = field('wa-token', '').trim();
-  const numero = field('wa-num', '').trim();
-  const reply = field('wa-reply', '').trim();
-  if (!phoneId || !token) return alert('Faltan Phone ID y Token (Meta → WhatsApp → API Setup).');
-  showLoading('Guardando WhatsApp…');
+  showLoading('Creando lead de prueba…');
   try {
-    const { error: e1 } = await sb.from('wa_conexiones').upsert({
-      user_id: session.user.id,
-      phone_number_id: phoneId,
-      access_token: token,
-      display_number: numero,
+    const tel = '52155' + String(Math.floor(1000000 + Math.random() * 8999999));
+    const r = await apiFetch(`/api/leads/${session.user.id}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ de: '+52 1 ' + tel.slice(2), texto: 'Prueba — me interesa' }),
     });
-    const { error: e2 } = await sb.from('perfiles').upsert({
-      user_id: session.user.id,
-      wa_autoreply: reply,
-    });
+    const d = await r.json();
     hideLoading();
-    if (e1 || e2) throw e1 || e2;
-    await loadPerfil();
-    screen = 'ok'; window._okMsg = 'WhatsApp conectado. Los leads que escriban llegan solos a Nuevos.'; render();
-  } catch (e) {
-    hideLoading();
-    alert('No se pudo guardar: ' + (e && e.message ? e.message : 'revisa la conexión'));
-  }
+    if (!d.ok) return alert(d.error || 'No se pudo crear');
+    await dbPull();
+    screen = 'ok';
+    window._okMsg = `Funcionó — llegó el lead ${d.telefono}. Míralo en Clientes → Nuevos.`;
+    render();
+  } catch { hideLoading(); alert('El servidor no respondió — revisa tu conexión.'); }
 }
 
 function guardarSupa() {

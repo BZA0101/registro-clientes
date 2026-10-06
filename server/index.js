@@ -164,16 +164,46 @@ async function crearLeadWa(userId, tel, nombre, texto) {
 app.post('/api/leads/:uid', async (req, res) => {
   const uid = String(req.params.uid || '');
   if (!/^[0-9a-f-]{20,}$/i.test(uid)) return res.status(400).json({ error: 'id inválido' });
-  const { de = '', texto = '' } = req.body || {};
-  const fuente = `${de} ${texto}`;
-  const m = fuente.match(/\+?[\d][\d\s\-()]{7,}\d/);
-  if (!m) return res.status(400).json({ error: 'no encontré número', recibido: fuente.slice(0, 80) });
-  const tel = m[0].replace(/\D/g, '');
-  if (tel.length < 8 || tel.length > 15) return res.status(400).json({ error: 'número inválido' });
-  /* si el titulo trae texto ademas del numero, es el nombre del contacto */
-  const nombre = de.replace(m[0], '').replace(/[+()\-]/g, ' ').replace(/\s+/g, ' ').trim();
-  const r = await crearLeadWa(uid, tel, nombre || tel, (texto || de || 'WhatsApp').trim().slice(0, 500));
-  res.json({ ok: true, resultado: r, telefono: tel });
+  const { de = '', texto = '', telefono = '' } = req.body || {};
+
+  /* 1) numero explicito, 2) extraido del titulo/texto de la notificacion */
+  let tel = String(telefono).replace(/\D/g, '');
+  if (!tel) {
+    const m = `${de} ${texto}`.match(/\+?[\d][\d\s\-().]{7,}\d/);
+    if (m) tel = m[0].replace(/\D/g, '');
+  }
+  if (tel && (tel.length < 8 || tel.length > 15)) tel = '';
+
+  const nombre = de.replace(/\+?[\d][\d\s\-().]{7,}\d/, ' ').replace(/\s+/g, ' ').trim();
+  const msg = (texto || de || 'WhatsApp').trim().slice(0, 500);
+
+  /* notificaciones basura del sistema ("2 mensajes de 3 chats", "WhatsApp") */
+  if (/^(whatsapp|\d+\s+(mensajes?|messages?|nuevos?|chats?))/i.test(de.trim()))
+    return res.status(400).json({ error: 'notificación de resumen, ignorada' });
+
+  if (tel) {
+    const r = await crearLeadWa(uid, tel, nombre || tel, msg);
+    return res.json({ ok: true, resultado: r, telefono: tel });
+  }
+
+  /* Contacto guardado: la notificacion trae nombre, no numero — el lead
+     se crea igual (con telefono vacio) para que no se pierda */
+  if (!/[\p{L}]/u.test(nombre)) return res.status(400).json({ error: 'no encontré número ni nombre', recibido: `${de} ${texto}`.slice(0, 80) });
+  const hoy = new Date().toISOString();
+  const ex = await sbRest(`clientes?user_id=eq.${uid}&telefono=eq.&nombre=eq.${encodeURIComponent(nombre)}&select=id,notas`);
+  if (ex && ex.length) {
+    await sbRest(`clientes?id=eq.${ex[0].id}`, { method: 'PATCH', body: {
+      notas: ((ex[0].notas || '') + `\nWA: ${msg}`).trim().slice(0, 2000), updated_at: hoy } });
+    return res.json({ ok: true, resultado: 'anotado', nombre });
+  }
+  await sbRest('clientes', { method: 'POST', body: {
+    id: 'wa' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    user_id: uid, nombre, telefono: '',
+    estado: 'nuevo', origen: 'whatsapp', primer_mensaje: msg,
+    motivo: '', seguimiento: '', notas: '⚠️ Sin número (ya está en tus contactos — agrégalo manual)',
+    fecha: hoy.slice(0, 10), estado_fecha: hoy.slice(0, 10), creado: hoy, updated_at: hoy,
+  } });
+  res.json({ ok: true, resultado: 'creado', nombre, aviso: 'sin número — contacto guardado' });
 });
 
 async function procesarWa(value, msg) {
