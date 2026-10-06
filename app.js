@@ -135,6 +135,7 @@ const today = () => {
   const d = new Date();
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 };
+const esIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtFecha = iso => new Date(iso + 'T12:00').toLocaleDateString('es', { day: 'numeric', month: 'short' });
@@ -1116,15 +1117,22 @@ function viewAjustes() {
       : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
 
     <div class="section-title">Captura automática de leads</div>
-    ${session ? `
-    <p class="hint">Todo lo que llegue a esta URL crea el lead solo en <b>Nuevos</b>. No requiere Meta:</p>
+    ${session ? (() => {
+      const guia = window._guiaCaptura || (esIOS() ? 'ios' : 'android');
+      return `
+    <p class="hint">Todo lo que llegue a tu URL personal crea el lead solo en <b>Nuevos</b>. Sin Meta:</p>
     <div class="card" style="word-break:break-all;font-size:12px;font-family:monospace;padding:10px">${esc(CONFIG.API_URL)}/api/leads/${esc(session.user.id)}</div>
+    ${guia === 'ios' ? `
+    <p class="hint"><b>iPhone — Atajo "Nuevo lead"</b> (semi-automático, gratis):<br>
+      1. App Atajos → + → acción <b>Obtener portapapeles</b><br>
+      2. Acción <b>Obtener contenido de URL</b> → POST a tu URL → cuerpo JSON → campo <code>de</code> = Portapapeles<br>
+      3. Agrégalo a tu pantalla de inicio.<br>
+      Uso: copia el número del chat de WhatsApp → corre el atajo → lead creado.</p>` : `
     <p class="hint"><b>Android — automático con Tasker</b> (~$70 MXN una vez):<br>
-      1. Perfil → Evento → UI → Notification → dueño: <b>WhatsApp</b><br>
-      2. Tarea → Net → HTTP Request → POST a la URL de arriba, cuerpo JSON:<br>
-      <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
-      Cuando un número no guardado te escriba, el lead se crea solo.</p>
-    <p class="hint"><b>iPhone — Atajos</b>: copia el número del cliente → corre un Atajo que haga POST con <code>{"de":&lt;portapapeles&gt;}</code> a la misma URL.</p>` : ''}
+      1. Perfil → Evento → UI → Notification → app: <b>WhatsApp</b><br>
+      2. Tarea → Net → HTTP Request → POST a tu URL → JSON: <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
+      Cuando un número no guardado te escriba, el lead se crea solo — aun con la pantalla apagada.</p>`}
+    <p class="hint" style="text-align:center"><a href="#" onclick="window._guiaCaptura='${guia === 'ios' ? 'android' : 'ios'}';render();return false">Ver guía para ${guia === 'ios' ? 'Android' : 'iPhone'}</a></p>`;})() : ''}
 
     <div class="section-title">WhatsApp automático</div>
     ${esPro() ? `
