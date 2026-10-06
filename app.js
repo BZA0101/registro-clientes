@@ -154,6 +154,23 @@ const ICON = {
   back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
   doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
   bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 9a6 6 0 1 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9z"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20.5c.8-3.9 3.8-6 7.5-6s6.7 2.1 7.5 6"/></svg>',
+  key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.6A9.8 9.8 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3 3.7M6.3 7.3A16.5 16.5 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 4.2-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16v.5"/></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+  apple: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7a4.5 4.5 0 0 0-3.5-1.9c-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8a4.7 4.7 0 0 0-4 2.4c-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4a10.6 10.6 0 0 0 1.4-2.8 4.3 4.3 0 0 1-2.6-3.9zM14 5.4a4.3 4.3 0 0 0 1-3.1 4.4 4.4 0 0 0-2.9 1.5 4.1 4.1 0 0 0-1 3 3.6 3.6 0 0 0 2.9-1.4z"/></svg>',
+  android: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.5 19.4 6.3a.4.4 0 0 0-.7-.4l-1.8 3.2a11 11 0 0 0-9.8 0L5.3 5.9a.4.4 0 0 0-.7.4l1.8 3.2A10.4 10.4 0 0 0 1 18h22a10.4 10.4 0 0 0-5.4-8.5zM7 15.2a1.1 1.1 0 1 1 0-2.2 1.1 1.1 0 0 1 0 2.2zm10 0a1.1 1.1 0 1 1 0-2.2 1.1 1.1 0 0 1 0 2.2z"/></svg>',
+  tap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11l3.3.6a2 2 0 0 1 1.6 2.3l-.8 4.6a2 2 0 0 1-2 1.5H10a2 2 0 0 1-1.6-.8L5.3 15a1.5 1.5 0 0 1 2.3-1.9L9 14.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>',
 };
 
 /* ---------- Sync a Google Sheets ---------- */
@@ -250,79 +267,107 @@ const motivoChips = (sel, handler) => `<div class="chips">
   ${MOTIVOS.map(m => `<button class="chip-btn ${sel===m?'active':''}" onclick="${handler}('${m}')">${m}</button>`).join('')}</div>`;
 
 /* ---------- Vistas ---------- */
+/* Campo con etiqueta flotante + icono (+ ojo para claves) */
+const fld = (id, label, ico, type, val, varName, extra = '') => `
+  <label class="field">
+    ${ICON[ico].replace('<svg', '<svg class="ico"')}
+    <input id="${id}" type="${type}" placeholder=" " value="${esc(val)}" oninput="${varName}=this.value${id === 'au-pass' && authMode === 'signup' ? ';pwStrength(this.value)' : ''}" ${extra}>
+    <span>${label}</span>
+    ${type === 'password' ? `<button type="button" class="eye" onclick="event.preventDefault();togglePass(this)" aria-label="Ver clave">${ICON.eye}</button>` : ''}
+  </label>`;
+
+function togglePass(btn) {
+  const inp = btn.parentElement.querySelector('input');
+  const ver = inp.type === 'password';
+  inp.type = ver ? 'text' : 'password';
+  btn.innerHTML = ver ? ICON.eyeOff : ICON.eye;
+}
+
+function pwStrength(v) {
+  const el = document.getElementById('pw-strength'); if (!el) return;
+  const s = !v ? 0 : v.length < 6 ? 1 : (v.length >= 10 && /\d/.test(v) && /[a-z]/i.test(v)) ? 3 : 2;
+  el.className = 'strength' + (s ? ' s' + s : '');
+}
+
+function pickSaludo(v, btn) {
+  authSaludo = v;
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === btn));
+}
+
 function viewLogin() {
-  const err = authErr ? `<p class="hint" style="color:var(--bad);text-align:center">${esc(authErr)}</p>` : '';
+  const err = authErr ? `<div class="auth-err">${ICON.alert}<span>${esc(authErr)}</span></div>` : '';
+  /* las animaciones de entrada solo corren al cambiar de modo, no en cada error */
+  const anim = window._authAnimKey !== authMode + recoverSent ? 'anim' : '';
+  window._authAnimKey = authMode + recoverSent;
+  const shell = inner => `
+    <div class="auth-wrap ${anim}">
+      <div class="auth-bg"><i></i><i></i><i></i></div>
+      <div class="auth-brand">
+        <div class="auth-logo">${ICON.home}</div>
+        <h1>Mis Clientes</h1>
+        <p>Tu plataforma de análisis de marketing</p>
+      </div>
+      <div class="auth-card">${inner}</div>
+      <p class="auth-foot">Tus datos están cifrados y solo <b>tú</b> los ves.</p>
+    </div>`;
 
   /* Paso "recuperar clave" */
   if (authMode === 'recover') {
-    return `
-    <div class="card auth-card">
-      <h2 class="auth-title">Recuperar</h2>
-      <p class="hint" style="margin:4px 0 14px;text-align:center">Te mandamos un código a tu correo.</p>
-      <div class="list form">
-        <label class="input-row"><span>Correo</span>
-          <input id="au-email" type="email" inputmode="email" placeholder="tu@correo.com" autocomplete="email" autocapitalize="none" value="${esc(authEmail)}" oninput="authEmail=this.value"></label>
+    return shell(`
+      <h2 class="auth-title">${recoverSent ? 'Revisa tu correo' : 'Recuperar clave'}</h2>
+      <p class="auth-sub">${recoverSent ? `Te enviamos un código de 6 dígitos a <b>${esc(authEmail)}</b>. Revisa también spam.` : 'Escribe tu correo y te mandamos un código para crear una clave nueva.'}</p>
+      <div class="fields">
+        ${recoverSent ? '' : fld('au-email', 'Correo', 'mail', 'email', authEmail, 'authEmail', 'inputmode="email" autocomplete="email" autocapitalize="none"')}
         ${recoverSent ? `
-        <label class="input-row"><span>Código</span>
-          <input id="au-code" type="tel" inputmode="numeric" placeholder="123456" autocomplete="one-time-code" value="${esc(authCode)}" oninput="authCode=this.value"></label>
-        <label class="input-row"><span>Nueva</span>
-          <input id="au-pass" type="password" placeholder="Nueva clave" autocomplete="new-password" value="${esc(authPass)}" oninput="authPass=this.value"></label>
-        <label class="input-row"><span>Repetir</span>
-          <input id="au-pass2" type="password" placeholder="Repite la clave" autocomplete="new-password" value="${esc(authPass2)}" oninput="authPass2=this.value"></label>` : ''}
+          ${fld('au-code', 'Código de 6 dígitos', 'key', 'tel', authCode, 'authCode', 'inputmode="numeric" autocomplete="one-time-code" maxlength="10"')}
+          ${fld('au-pass', 'Nueva clave', 'lock', 'password', authPass, 'authPass', 'autocomplete="new-password"')}
+          ${fld('au-pass2', 'Repite la clave', 'lock', 'password', authPass2, 'authPass2', 'autocomplete="new-password"')}` : ''}
       </div>
-      ${recoverSent ? `<p class="hint" style="text-align:center">Revisa tu correo (y spam) y escribe el código de 6 dígitos.</p>` : ''}
+      ${recoverSent ? `<input id="au-email" type="hidden" value="${esc(authEmail)}">` : ''}
       ${err}
-      <button class="primary mt" onclick="${recoverSent ? 'doRecover()' : 'doSendRecovery()'}">${recoverSent ? 'Cambiar mi clave' : 'Enviar código'}</button>
-      <button class="secondary" onclick="authMode='login';authErr='';recoverSent=false;render()">Volver a entrar</button>
-    </div>`;
+      <button class="primary mt" onclick="${recoverSent ? 'doRecover()' : 'doSendRecovery()'}">${recoverSent ? 'Cambiar mi clave' : 'Enviar código'} ${ICON.next}</button>
+      <button class="link-btn" onclick="authMode='login';authErr='';recoverSent=false;render()">← Volver a entrar</button>`);
   }
 
   /* Paso "nueva clave" cuando llegan por el enlace del correo */
   if (authMode === 'setpass') {
-    return `
-    <div class="card auth-card">
+    return shell(`
       <h2 class="auth-title">Nueva clave</h2>
-      <div class="list form" style="margin-top:14px">
-        <label class="input-row"><span>Nueva</span>
-          <input id="au-pass" type="password" placeholder="Nueva clave" autocomplete="new-password" oninput="authPass=this.value"></label>
-        <label class="input-row"><span>Repetir</span>
-          <input id="au-pass2" type="password" placeholder="Repite la clave" autocomplete="new-password" oninput="authPass2=this.value"></label>
+      <p class="auth-sub">Elige una clave que recuerdes. Mínimo 6 caracteres.</p>
+      <div class="fields">
+        ${fld('au-pass', 'Nueva clave', 'lock', 'password', '', 'authPass', 'autocomplete="new-password"')}
+        ${fld('au-pass2', 'Repite la clave', 'lock', 'password', '', 'authPass2', 'autocomplete="new-password"')}
       </div>
       ${err}
-      <button class="primary mt" onclick="doSetPass()">Guardar clave</button>
-    </div>`;
+      <button class="primary mt" onclick="doSetPass()">Guardar clave ${ICON.check}</button>`);
   }
 
   /* Entrar / Crear cuenta */
   const esSignup = authMode === 'signup';
-  return `
-    <div class="card auth-card">
-      <h2 class="auth-title">Mis Clientes</h2>
-      <p class="hint" style="margin:4px 0 14px;text-align:center">Tu embudo de ventas, en tu bolsillo.</p>
-      <div class="segmented" style="margin-bottom:16px">
-        <button class="${esSignup?'':'active'}" onclick="authMode='login';authErr='';render()">Entrar</button>
-        <button class="${esSignup?'active':''}" onclick="authMode='signup';authErr='';render()">Crear cuenta</button>
+  const prev = window._authSeg ?? (esSignup ? 1 : 0);
+  window._authSeg = esSignup ? 1 : 0;
+  return shell(`
+      <div class="seg2" data-on="${prev}" data-to="${esSignup ? 1 : 0}">
+        <button class="${esSignup ? '' : 'on'}" onclick="authMode='login';authErr='';render()">Entrar</button>
+        <button class="${esSignup ? 'on' : ''}" onclick="authMode='signup';authErr='';render()">Crear cuenta</button>
       </div>
-      <div class="list form">
-        ${esSignup ? `<label class="input-row"><span>Nombre</span>
-          <input id="au-nombre" type="text" placeholder="Ana López" autocomplete="name" value="${esc(authNombre)}" oninput="authNombre=this.value"></label>` : ''}
-        <label class="input-row"><span>Correo</span>
-          <input id="au-email" type="email" inputmode="email" placeholder="tu@correo.com" autocomplete="email" autocapitalize="none" value="${esc(authEmail)}" oninput="authEmail=this.value"></label>
-        <label class="input-row"><span>Clave</span>
-          <input id="au-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="${esSignup?'new':'current'}-password" value="${esc(authPass)}" oninput="authPass=this.value"></label>
-        ${esSignup ? `<label class="input-row"><span>Repetir</span>
-          <input id="au-pass2" type="password" placeholder="Repite la clave" autocomplete="new-password" value="${esc(authPass2)}" oninput="authPass2=this.value"></label>` : ''}
+      <p class="auth-sub">${esSignup ? 'Crea tu cuenta gratis en 30 segundos.' : 'Qué gusto verte de nuevo.'}</p>
+      <div class="fields">
+        ${esSignup ? fld('au-nombre', 'Tu nombre', 'user', 'text', authNombre, 'authNombre', 'autocomplete="name"') : ''}
+        ${fld('au-email', 'Correo', 'mail', 'email', authEmail, 'authEmail', 'inputmode="email" autocomplete="email" autocapitalize="none"')}
+        ${fld('au-pass', esSignup ? 'Clave (mín. 6)' : 'Clave', 'lock', 'password', authPass, 'authPass', `autocomplete="${esSignup ? 'new' : 'current'}-password"`)}
+        ${esSignup ? `<div id="pw-strength" class="strength"><i></i><i></i><i></i></div>` : ''}
+        ${esSignup ? fld('au-pass2', 'Repite la clave', 'lock', 'password', authPass2, 'authPass2', 'autocomplete="new-password"') : ''}
       </div>
       ${esSignup ? `
-        <div class="section-title" style="margin:18px 16px 8px">¿Cómo te saludamos?</div>
-        <div class="chips" style="justify-content:center">
-          <button class="chip-btn ${authSaludo==='bienvenida'?'active':''}" onclick="authSaludo='bienvenida';render()">Bienvenida</button>
-          <button class="chip-btn ${authSaludo==='bienvenido'?'active':''}" onclick="authSaludo='bienvenido';render()">Bienvenido</button>
+        <p class="pick-lbl">¿Cómo te saludamos?</p>
+        <div class="saludo-pick">
+          <button type="button" class="${authSaludo === 'bienvenida' ? 'on' : ''}" onclick="pickSaludo('bienvenida',this)">Bienvenida<small>femenino</small></button>
+          <button type="button" class="${authSaludo === 'bienvenido' ? 'on' : ''}" onclick="pickSaludo('bienvenido',this)">Bienvenido<small>masculino</small></button>
         </div>` : ''}
       ${err}
-      <button class="primary mt" onclick="${esSignup ? 'doSignup()' : 'doLogin()'}">${esSignup ? 'Crear mi cuenta' : 'Entrar'}</button>
-      ${!esSignup ? `<button class="link-btn" onclick="authMode='recover';authErr='';recoverSent=false;render()">¿Olvidaste tu clave?</button>` : ''}
-    </div>`;
+      <button class="primary mt" onclick="${esSignup ? 'doSignup()' : 'doLogin()'}">${esSignup ? 'Crear mi cuenta' : 'Entrar'} ${ICON.next}</button>
+      ${!esSignup ? `<button class="link-btn" onclick="authMode='recover';authErr='';recoverSent=false;render()">¿Olvidaste tu clave?</button>` : ''}`);
 }
 
 const field = (id, fallback) => {
@@ -440,14 +485,20 @@ function showWelcome() {
   const saludo = meta.saludo === 'bienvenida' ? 'BIENVENIDA' : 'BIENVENIDO';
   const el = document.createElement('div');
   el.id = 'splash';
+  /* cada palabra entra escalonada */
+  const palabras = ['HOLA' + (nombre ? ',' : ''), ...(nombre ? [nombre] : [])]
+    .map((w, i) => `<span class="w" style="animation-delay:${.35 + i * .15}s">${esc(w)}</span>`).join(' ');
   el.innerHTML = `
-    <svg id="splash-heart" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
-    <p class="splash-hi" style="text-transform:uppercase">Hola${nombre ? ', ' + esc(nombre) : ''}</p>
-    <p class="splash-love">${saludo} a tu plataforma de análisis de marketing</p>`;
+    <div class="splash-logo">
+      <svg id="splash-heart" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
+    </div>
+    <p class="splash-hi" style="text-transform:uppercase">${palabras}</p>
+    <p class="splash-love">${saludo} a tu plataforma de análisis de marketing</p>
+    <div class="splash-bar"></div>`;
   document.body.appendChild(el);
   const dismiss = () => { el.classList.add('bye'); setTimeout(() => el.remove(), 700); };
   el.addEventListener('click', dismiss);
-  setTimeout(dismiss, 2400);
+  setTimeout(dismiss, 2800);
 }
 
 /* Crea el perfil del asesor la primera vez que entra */
@@ -1116,26 +1167,7 @@ function viewAjustes() {
       : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
 
     <div class="section-title">Leads de WhatsApp</div>
-    ${session ? (() => {
-      const guia = window._guiaCaptura || (esIOS() ? 'ios' : 'android');
-      return `
-    <p class="hint">Cuando alguien te escribe por WhatsApp, su número se guarda solo en <b>Nuevos</b>.</p>
-    <button class="secondary" onclick="probarCaptura()">Probar — crear un lead de prueba</button>
-    <p class="hint" style="margin-top:14px"><b>Tu enlace personal</b> (lo usas en el paso de abajo):</p>
-    <div class="card" style="word-break:break-all;font-size:12px;font-family:monospace;padding:10px">${esc(CONFIG.API_URL)}/api/leads/${esc(session.user.id)}</div>
-    ${guia === 'ios' ? `
-    <p class="hint"><b>En este iPhone</b> — atajo gratis:<br>
-      ① Abre la app <b>Atajos</b> → <b>+</b> → agrega la acción <b>Obtener portapapeles</b><br>
-      ② Agrega <b>Obtener contenido de URL</b> → método <b>POST</b> → pega tu enlace → cuerpo JSON → campo <code>de</code> = <b>Portapapeles</b><br>
-      ③ Pon el atajo en tu pantalla de inicio.<br>
-      <b>Uso:</b> en el chat mantén presionado el número → Copiar → corre el atajo → lead creado.</p>` : `
-    <p class="hint"><b>En este Android</b> — automático con <b>Tasker</b> (Play Store, ~$70 MXN una vez):<br>
-      ① Perfil → Evento → UI → <b>Notification</b> → app: <b>WhatsApp</b><br>
-      ② Tarea → Net → <b>HTTP Request</b> → POST → pega tu enlace → cuerpo:<br>
-      <code>{"de":"%NTITLE","texto":"%NTEXT"}</code><br>
-      Listo — cuando te escriba un número <b>que no tienes guardado</b>, el lead entra solo, aun con la pantalla apagada.</p>
-    <p class="hint">Ojo: si ya tienes el número en contactos, WhatsApp muestra su nombre y no el número — ese lead entra solo con nombre. Para probar usa un número que no tengas agregado.</p>`}
-    <p class="hint" style="text-align:center"><a href="#" onclick="window._guiaCaptura='${guia === 'ios' ? 'android' : 'ios'}';render();return false">Ver guía para ${guia === 'ios' ? 'Android' : 'iPhone'}</a></p>`;})() : ''}
+    <div id="lead-guide">${viewLeadGuide()}</div>
     ` : ''}
 
     <div class="section-title">Exportar</div>
@@ -1296,10 +1328,164 @@ function guardarUrl() {
   screen = 'ok'; window._okMsg = 'Conexión guardada. Los registros llegarán a tu hoja.'; render();
 }
 
+/* ---------- Instructivo interactivo de captura de leads ---------- */
+const lg = { os: null, paso: 0, dir: 'fwd', result: null, probando: false };
+
+function lgSteps(os, url) {
+  const json = '{"de":"%NTITLE","texto":"%NTEXT"}';
+  return os === 'ios' ? [
+    { ico: 'link', corto: 'Enlace', titulo: 'Copia tu enlace',
+      txt: 'Es <b>personal</b>: todo lo que le llegue se guarda como lead en tu cuenta.',
+      copies: [['Tu enlace', url]] },
+    { ico: 'tap', corto: 'Atajo', titulo: 'Crea el atajo "Nuevo lead"',
+      txt: 'Abre la app <b>Atajos</b>, crea uno nuevo y agrega esta acción:',
+      path: ['+', 'Agregar acción', 'Obtener portapapeles'],
+      ext: ['shortcuts://create-shortcut', 'Abrir Atajos'] },
+    { ico: 'bolt', corto: 'Conectar', titulo: 'Conéctalo a tu app',
+      txt: 'Debajo agrega <b>Obtener contenido de URL</b> y llénalo así:',
+      path: ['Obtener contenido de URL', 'Mostrar más'],
+      kv: [['URL', 'tu enlace del paso 1'], ['Método', 'POST'], ['Cuerpo', 'JSON'], ['Campo', 'de → Portapapeles']],
+      copies: [['URL', url]],
+      tip: 'Toca <b>ⓘ → Agregar a pantalla de inicio</b> para tenerlo a un toque.' },
+    { ico: 'check', corto: 'Usar', titulo: 'Úsalo con cada cliente',
+      txt: 'En el chat: <b>mantén presionado el número → Copiar</b> → toca tu atajo. El lead entra a <b>Nuevos</b>.',
+      test: true },
+  ] : [
+    { ico: 'play', corto: 'Instalar', titulo: 'Instala Tasker',
+      txt: 'Es la app que <b>lee las notificaciones de WhatsApp</b> y nos manda el número. Pago único (~$70 MXN).',
+      ext: ['https://play.google.com/store/apps/details?id=net.dinglisch.android.taskerm', 'Abrir en Play Store'],
+      tip: 'Al abrirla acepta el permiso de <b>acceso a notificaciones</b> — sin eso no puede leerlas.' },
+    { ico: 'bell', corto: 'Detectar', titulo: 'Detecta cada mensaje',
+      txt: 'Crea un <b>Perfil</b> que se active con las notificaciones de WhatsApp:',
+      path: ['Perfiles', '+', 'Evento', 'UI', 'Notificación', 'WhatsApp'] },
+    { ico: 'link', corto: 'Enviar', titulo: 'Envía el número a tu app',
+      txt: 'Asigna al perfil una <b>tarea nueva</b> con esta acción:',
+      path: ['+', 'Net', 'HTTP Request'],
+      kv: [['Método', 'POST'], ['Tipo', 'application/json']],
+      copies: [['URL', url], ['Cuerpo', json]] },
+    { ico: 'bolt', corto: 'Probar', titulo: '¡Listo! Pruébalo',
+      txt: 'Crea un lead de prueba aquí. Luego pide a alguien <b>que no tengas guardado</b> que te escriba.',
+      test: true,
+      tip: 'Contactos ya guardados llegan con su nombre (sin número) — agrégalo en el detalle del cliente.' },
+  ];
+}
+
+function viewLeadGuide() {
+  if (!session) return '';
+  const detectado = esIOS() ? 'ios' : 'android';
+  const os = lg.os || detectado;
+  const url = `${CONFIG.API_URL}/api/leads/${session.user.id}`;
+  const steps = lgSteps(os, url);
+  const s = steps[lg.paso];
+  const prevSeg = window._lgSeg ?? (os === 'ios' ? 1 : 0);
+  window._lgSeg = os === 'ios' ? 1 : 0;
+  const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  const path = s.path ? `<div class="lg-path">${s.path.map((p, i) =>
+    `${i ? arrow.replace('<svg', `<svg style="animation-delay:${i * .12}s"`) : ''}<span class="${i === s.path.length - 1 ? 'last' : ''}" style="animation-delay:${.1 + i * .12}s">${esc(p)}</span>`).join('')}</div>` : '';
+  const copies = (s.copies || []).map(([l, v]) => `
+    <button class="lg-copy" data-copy="${esc(v)}" onclick="lgCopy(this)">
+      <div><span class="lbl">${esc(l)}</span><code>${esc(v)}</code></div>
+      <span class="cp">${ICON.copy}</span>
+    </button>`).join('');
+  const r = lg.result;
+  return `
+  <div class="lg">
+    <div class="lg-hero">
+      <h3>Tus leads de WhatsApp, solos</h3>
+      <p>Cada número que te escribe entra directo a <b style="color:#fff">Nuevos</b>.</p>
+      <div class="lg-scene">
+        <div class="lg-phone"><div class="lg-notif"><span class="wa">${ICON.wa}</span>
+          <div><b>+52 55 1234 5678</b><small>Hola, me interesa…</small></div></div></div>
+        <div class="lg-flow"></div>
+        <div class="lg-app"><small>Nuevos</small>
+          <div class="lg-lead"><i>+5</i><div><b>+52 55 1234…</b><em>● Nuevo lead</em></div></div>
+          <div class="lg-lead"><i>A</i><div><b>Ana López</b><em style="color:var(--muted)">ayer</em></div></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="os-detect">${os === detectado ? `<i></i>Detectamos tu ${os === 'ios' ? 'iPhone' : 'Android'}` : `Guía para ${os === 'ios' ? 'iPhone' : 'Android'}`}</p>
+    <div class="seg2" data-on="${prevSeg}" data-to="${os === 'ios' ? 1 : 0}">
+      <button class="${os === 'ios' ? '' : 'on'}" onclick="lgOS('android')">${ICON.android} Android</button>
+      <button class="${os === 'ios' ? 'on' : ''}" onclick="lgOS('ios')">${ICON.apple} iPhone</button>
+    </div>
+
+    <div class="lg-progress">${steps.map((st, i) => `
+      <button class="${i < lg.paso ? 'done' : i === lg.paso ? 'on' : ''}" onclick="lgGo(${i})"><i></i><small>${i + 1}. ${st.corto}</small></button>`).join('')}
+    </div>
+
+    <div class="lg-step ${lg.dir}">
+      <div class="lg-step-head">
+        <span class="lg-num" data-n="${lg.paso + 1}">${ICON[s.ico]}</span>
+        <div><small>Paso ${lg.paso + 1} de ${steps.length}</small><h4>${s.titulo}</h4></div>
+      </div>
+      <p>${s.txt}</p>
+      ${path}
+      ${s.kv ? `<div class="lg-kv">${s.kv.map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>` : ''}
+      ${copies}
+      ${s.ext ? `<a class="lg-ext" href="${s.ext[0]}" target="_blank" rel="noopener">${s.ext[1]} ${ICON.ext}</a>` : ''}
+      ${s.test ? `<button class="primary lg-test" onclick="probarCaptura()" ${lg.probando ? 'disabled' : ''}>${lg.probando ? 'Enviando…' : `${ICON.bolt} Crear lead de prueba`}</button>` : ''}
+      ${s.test && r ? `<div class="lg-result ${r.ok ? '' : 'err'}"><span class="ok">${r.ok ? ICON.check : ICON.alert}</span>
+        <div><b>${r.ok ? '¡Funciona! Llegó el lead' : 'No se pudo crear'}</b><small>${esc(r.msg)}</small></div></div>` : ''}
+      ${s.tip ? `<div class="lg-tip">${ICON.alert}<span>${s.tip}</span></div>` : ''}
+    </div>
+
+    <div class="lg-nav">
+      <button class="prev" onclick="lgGo(${lg.paso - 1})" ${lg.paso ? '' : 'disabled'} aria-label="Anterior">${ICON.back}</button>
+      ${lg.paso < steps.length - 1
+        ? `<button class="next" onclick="lgGo(${lg.paso + 1})">Siguiente ${ICON.next}</button>`
+        : `<button class="next" onclick="go('clientes')">Ver mis leads ${ICON.next}</button>`}
+    </div>
+  </div>`;
+}
+
+function lgRefresh() {
+  const el = document.getElementById('lead-guide'); if (!el) return;
+  el.innerHTML = viewLeadGuide();
+  animarSegs(el);
+}
+function lgGo(n) {
+  const total = lgSteps(lg.os || (esIOS() ? 'ios' : 'android'), '').length;
+  if (n < 0 || n >= total || n === lg.paso) return;
+  lg.dir = n > lg.paso ? 'fwd' : 'back'; lg.paso = n; lgRefresh();
+}
+function lgOS(os) {
+  if ((lg.os || (esIOS() ? 'ios' : 'android')) === os) return;
+  lg.os = os; lg.paso = 0; lg.dir = 'fwd'; lg.result = null; lgRefresh();
+}
+async function lgCopy(btn) {
+  const txt = btn.dataset.copy;
+  try { await navigator.clipboard.writeText(txt); }
+  catch {
+    const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t);
+    t.select(); document.execCommand('copy'); t.remove();
+  }
+  btn.classList.add('copied');
+  btn.querySelector('.cp').innerHTML = ICON.check;
+  toast('Copiado');
+  setTimeout(() => { btn.classList.remove('copied'); btn.querySelector('.cp').innerHTML = ICON.copy; }, 1800);
+}
+
+let toastT;
+function toast(msg) {
+  const t = document.getElementById('toast'); if (!t) return;
+  t.innerHTML = `${ICON.check}<span>${esc(msg)}</span>`;
+  t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* La pildora del segmented se desliza del valor anterior al nuevo */
+function animarSegs(root = document) {
+  root.querySelectorAll('.seg2[data-to]').forEach(el => {
+    if (el.dataset.on === el.dataset.to) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => { el.dataset.on = el.dataset.to; }));
+  });
+}
+
 /* Simula un lead entrante para probar la captura sin configurar nada */
 async function probarCaptura() {
-  if (!session) return;
-  showLoading('Creando lead de prueba…');
+  if (!session || lg.probando) return;
+  lg.probando = true; lg.result = null; lgRefresh();
   try {
     const tel = '52155' + String(Math.floor(1000000 + Math.random() * 8999999));
     const r = await apiFetch(`/api/leads/${session.user.id}`, {
@@ -1307,13 +1493,12 @@ async function probarCaptura() {
       body: JSON.stringify({ de: '+52 1 ' + tel.slice(2), texto: 'Prueba — me interesa' }),
     });
     const d = await r.json();
-    hideLoading();
-    if (!d.ok) return alert(d.error || 'No se pudo crear');
-    await dbPull();
-    screen = 'ok';
-    window._okMsg = `Funcionó — llegó el lead ${d.telefono}. Míralo en Clientes → Nuevos.`;
-    render();
-  } catch { hideLoading(); alert('El servidor no respondió — revisa tu conexión.'); }
+    if (d.ok) { await dbPull(); toast('Lead creado'); }
+    lg.result = d.ok
+      ? { ok: true, msg: `${d.telefono} ya está en Clientes → Nuevos.` }
+      : { ok: false, msg: d.error || 'Intenta de nuevo.' };
+  } catch { lg.result = { ok: false, msg: 'El servidor no respondió — puede estar despertando, intenta en 30 s.' }; }
+  lg.probando = false; lgRefresh();
 }
 
 function guardarSupa() {
@@ -1414,17 +1599,51 @@ const TITLES = { hoy: 'Hoy', registrar: 'Nuevo cliente', detalle: '',
   login: 'Entrar', ok: '' };
 const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy' };
 
+/* Numeros que suben de 0 a su valor (hero, stats, %) */
+function countUp(root) {
+  root.querySelectorAll('.hero-num, .stat .num, .pct').forEach(el => {
+    const m = el.textContent.match(/^(\D*)([\d.,]+)(.*)$/);
+    if (!m) return;
+    const conComa = m[2].includes(',');
+    const fin = parseFloat(m[2].replace(/,/g, ''));
+    if (!isFinite(fin) || fin === 0) return;
+    const dec = (m[2].split('.')[1] || '').length;
+    const t0 = performance.now(), dur = 800;
+    const fmt = v => conComa ? v.toLocaleString('es-MX', { maximumFractionDigits: dec }) : v.toFixed(dec);
+    const paso = t => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = m[1] + fmt(fin * e) + m[3];
+      if (p < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  });
+}
+
+let lastScreen = null;
 function render() {
+  const key = screen + (detailId || '');
+  const cambio = key !== lastScreen;
+  lastScreen = key;
   const fecha = new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
   document.getElementById('screen-date').textContent = screen === 'hoy' ? fecha : '';
-  document.getElementById('screen-title').textContent = TITLES[screen];
-  document.getElementById('app').innerHTML = VIEWS[screen]();
+  const title = document.getElementById('screen-title');
+  title.textContent = TITLES[screen];
+  const app = document.getElementById('app');
+  app.innerHTML = VIEWS[screen]();
+  document.body.classList.toggle('is-login', screen === 'login');
   document.getElementById('tabbar').classList.toggle('hidden', screen === 'login');
   const tab = TAB_OF[screen] || screen;
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.screen === tab));
   updateBadge();
-  window.scrollTo(0, 0);
+  animarSegs(app);
+  if (cambio) {
+    app.classList.remove('enter'); title.classList.remove('swap');
+    void app.offsetWidth;   // reinicia la animacion
+    app.classList.add('enter'); title.classList.add('swap');
+    countUp(app);
+    window.scrollTo(0, 0);
+  }
 }
 
 /* ---------- Arranque: sesion + datos ---------- */
