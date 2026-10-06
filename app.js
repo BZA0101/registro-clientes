@@ -463,6 +463,36 @@ async function ensurePerfil() {
 }
 
 let perfil = null, waConn = null;
+let monetizacion = false;   // true cuando el servidor tiene Stripe configurado
+const esPro = () => !monetizacion || (perfil && perfil.plan === 'pro');
+
+async function loadMonetizacion() {
+  try { monetizacion = !!(await (await apiFetch('/api/plan')).json()).monetizacion; }
+  catch { monetizacion = false; }
+}
+
+async function upgrade() {
+  try {
+    const r = await apiFetch('/api/stripe/checkout', {
+      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const d = await r.json();
+    if (d.url) location.href = d.url;
+    else alert(d.error || 'No se pudo abrir el pago.');
+  } catch { alert('Servidor no responde.'); }
+}
+
+async function abrirPortal() {
+  try {
+    const r = await apiFetch('/api/stripe/portal', {
+      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const d = await r.json();
+    if (d.url) location.href = d.url;
+    else alert(d.error || 'Sin suscripción activa.');
+  } catch { alert('Servidor no responde.'); }
+}
+
 async function loadPerfil() {
   if (!session || !sb) return;
   try {
@@ -829,6 +859,7 @@ async function generarResumenIA(usuario, resumen) {
 
 function viewLive() {
   if (liveResumen) return viewLiveResumen(liveResumen);
+  if (session && monetizacion && !esPro()) return viewUpgrade();
   const activos = Object.values(liveSessions);
   return `
     <div class="card" style="margin-top:8px">
@@ -848,6 +879,26 @@ function viewLive() {
     <button class="secondary" onclick="addCompetidor()">Guardar competidor</button>
     <div id="comp-list">${viewCompList()}</div>
     <div id="comp-report">${viewCompReport()}</div>`;
+}
+
+function viewUpgrade() {
+  return `
+    <div class="card auth-card">
+      <h2 class="auth-title">Plan Pro</h2>
+      <p class="hint" style="margin:8px 0 14px;text-align:center">Desbloquea las herramientas de análisis:</p>
+      <div class="list">
+        <div class="row"><span class="avatar icon">${ICON.wa}</span>
+          <span class="row-main"><span class="name">Leads automáticos de WhatsApp</span>
+          <span class="sub">Cada mensaje entrante crea el lead solo</span></span></div>
+        <div class="row"><span class="avatar icon">${ICON.bell}</span>
+          <span class="row-main"><span class="name">Análisis de lives de TikTok</span>
+          <span class="sub">Viewers, leads y competencia en tiempo real</span></span></div>
+        <div class="row"><span class="avatar icon">${ICON.doc}</span>
+          <span class="row-main"><span class="name">Voz del live + resumen IA</span>
+          <span class="sub">Transcripción y reporte de qué funcionó</span></span></div>
+      </div>
+      <button class="primary mt" onclick="upgrade()">Mejorar a Pro</button>
+    </div>`;
 }
 
 function viewLiveCard(d) {
@@ -1053,7 +1104,17 @@ function viewAjustes() {
     </div>
     <button class="destructive" style="margin-top:10px" onclick="doLogout()">Cerrar sesión</button>
 
+    ${monetizacion ? `
+    <div class="section-title">Plan</div>
+    <div class="list">
+      <div class="info-row"><span>Plan actual</span><b>${esPro() ? 'Pro' : 'Free'}</b></div>
+    </div>
+    ${esPro()
+      ? `<button class="secondary" onclick="abrirPortal()">Administrar suscripción</button>`
+      : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
+
     <div class="section-title">WhatsApp automático</div>
+    ${esPro() ? `
     <div class="list form">
       <label class="input-row"><span>Phone ID</span>
         <input id="wa-phone" placeholder="123456789012345" autocomplete="off" autocapitalize="none" value="${esc((waConn && waConn.phone_number_id) || '')}"></label>
@@ -1065,7 +1126,8 @@ function viewAjustes() {
         <textarea id="wa-reply" rows="2" placeholder="Auto-respuesta al primer mensaje (ej. ¡Hola! Gracias por escribir, en breve te contacto)">${esc((perfil && perfil.wa_autoreply) || '')}</textarea></label>
     </div>
     <button class="secondary" onclick="guardarWa()">${waConn ? 'Actualizar WhatsApp' : 'Conectar WhatsApp'}</button>
-    <p class="hint">Cuando alguien escriba a ese número, el lead se crea solo en <b>Nuevos</b> con su primer mensaje. Los datos salen de Meta for Developers → tu app → WhatsApp → API Setup.</p>` : ''}
+    <p class="hint">Cuando alguien escriba a ese número, el lead se crea solo en <b>Nuevos</b> con su primer mensaje. Los datos salen de Meta for Developers → tu app → WhatsApp → API Setup.</p>`
+    : `<p class="hint">Los leads automáticos de WhatsApp son parte del <b>plan Pro</b>.</p>`}` : ''}
 
     <div class="section-title">Exportar</div>
     <div class="list">
@@ -1367,6 +1429,13 @@ function render() {
 
 /* ---------- Arranque: sesion + datos ---------- */
 async function boot() {
+  loadMonetizacion();
+  if (new URLSearchParams(location.search).get('pago') === 'ok') {
+    history.replaceState(null, '', location.pathname);
+    window._okMsg = 'Pago recibido — tu plan Pro se activa en segundos.';
+    screen = 'ok';
+    setTimeout(loadPerfil, 5000);   // el webhook tarda un momento en marcar pro
+  }
   if (sb) {
     const { data } = await sb.auth.getSession();
     session = data.session;

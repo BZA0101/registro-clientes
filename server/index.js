@@ -5,6 +5,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
@@ -22,8 +23,15 @@ const WA_VERIFY = process.env.WA_VERIFY_TOKEN || 'registro-clientes-verify';
 /* Groq: transcripcion (Whisper) + resumen (LLM). Key solo en servidor. */
 const GROQ_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_API = 'https://api.groq.com/openai/v1';
+/* Stripe: suscripciones. Sin STRIPE_KEY el servidor queda en modo abierto (dev). */
+const STRIPE_KEY = process.env.STRIPE_KEY || '';
+const STRIPE_WH = process.env.STRIPE_WEBHOOK_SECRET || '';
+const STRIPE_PRICE = process.env.STRIPE_PRICE_PRO || '';
+
 const app = express();
 app.use(cors());
+/* El webhook de Stripe necesita el body CRUDO para verificar la firma */
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..')));
 
@@ -188,6 +196,7 @@ app.post('/api/live/transcribe', express.raw({ type: () => true, limit: '15mb' }
   if (!GROQ_KEY) return res.status(503).json({ error: 'Falta GROQ_API_KEY en el servidor' });
   const user = await authUser(req);
   if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
   if (!req.body || !req.body.length) return res.status(400).json({ error: 'Sin audio' });
 
   const mime = req.headers['content-type'] || 'audio/mp4';
@@ -213,6 +222,7 @@ app.post('/api/live/resumen', async (req, res) => {
   if (!GROQ_KEY) return res.status(503).json({ error: 'Falta GROQ_API_KEY en el servidor' });
   const user = await authUser(req);
   if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
 
   const { usuario, metricas = {}, transcript = [] } = req.body || {};
   const texto = transcript.map(t => `[${t.t}s] ${t.texto}`).join('\n').slice(0, 15000);
@@ -261,6 +271,85 @@ Responde en español, directo y accionable, con estas secciones:
     } });
     res.json({ resumen });
   } catch { res.status(502).json({ error: 'No se pudo generar el resumen' }); }
+});
+
+/* ---------- Stripe: planes ---------- */
+const stripePost = (ruta, params) =>
+  fetch(`https://api.stripe.com/v1/${ruta}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${STRIPE_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  }).then(r => r.json());
+
+/* Plan del usuario: sin Stripe configurado todo queda abierto */
+async function esPro(user) {
+  if (!STRIPE_KEY) return true;
+  if (!user || !user.id) return false;
+  const p = await sbRest(`perfiles?user_id=eq.${user.id}&select=plan`);
+  return !!(p && p[0] && p[0].plan === 'pro');
+}
+
+app.get('/api/plan', (req, res) => res.json({ monetizacion: !!STRIPE_KEY }));
+
+app.post('/api/stripe/checkout', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (!STRIPE_KEY || !STRIPE_PRICE) return res.status(503).json({ error: 'Pagos no configurados' });
+  const p = new URLSearchParams({
+    mode: 'subscription',
+    'line_items[0][price]': STRIPE_PRICE,
+    'line_items[0][quantity]': '1',
+    success_url: (req.headers.origin || '') + '/?pago=ok',
+    cancel_url: (req.headers.origin || '') + '/?pago=cancel',
+    client_reference_id: user.id,
+    customer_email: user.email || '',
+    allow_promotion_codes: 'true',
+  });
+  const s = await stripePost('checkout/sessions', p);
+  if (!s.url) return res.status(502).json({ error: (s.error && s.error.message) || 'Stripe falló' });
+  res.json({ url: s.url });
+});
+
+app.post('/api/stripe/portal', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const perfs = await sbRest(`perfiles?user_id=eq.${user.id}&select=stripe_customer_id`);
+  const cust = perfs && perfs[0] && perfs[0].stripe_customer_id;
+  if (!cust) return res.status(400).json({ error: 'Sin suscripción' });
+  const p = new URLSearchParams({ customer: cust, return_url: req.headers.origin || '' });
+  const s = await stripePost('billing_portal/sessions', p);
+  if (!s.url) return res.status(502).json({ error: 'Stripe falló' });
+  res.json({ url: s.url });
+});
+
+function verificarStripe(rawBody, sigHeader) {
+  try {
+    const parts = Object.fromEntries(sigHeader.split(',').map(p => p.split('=')));
+    const esperada = crypto.createHmac('sha256', STRIPE_WH)
+      .update(`${parts.t}.${rawBody.toString()}`).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(esperada), Buffer.from(parts.v1 || ''));
+  } catch { return false; }
+}
+
+app.post('/api/stripe/webhook', async (req, res) => {
+  if (!verificarStripe(req.body, req.headers['stripe-signature'] || ''))
+    return res.sendStatus(400);
+  let ev; try { ev = JSON.parse(req.body.toString()); } catch { return res.sendStatus(400); }
+
+  if (ev.type === 'checkout.session.completed') {
+    const o = ev.data.object;
+    if (o.client_reference_id) {
+      await sbRest(`perfiles?user_id=eq.${o.client_reference_id}`, {
+        method: 'PATCH', body: { plan: 'pro', stripe_customer_id: o.customer || '' },
+      });
+    }
+  }
+  if (ev.type === 'customer.subscription.deleted') {
+    await sbRest(`perfiles?stripe_customer_id=eq.${ev.data.object.customer}`, {
+      method: 'PATCH', body: { plan: 'free' },
+    });
+  }
+  res.json({ ok: true });
 });
 
 /* ---------- Google Sheet (resumen de lives) ---------- */
@@ -314,6 +403,11 @@ const sessionStatus = s => ({
 });
 
 app.post('/api/live/start', async (req, res) => {
+  if (STRIPE_KEY) {   // con monetizacion activa el analisis de lives es Pro
+    const user = await authUser(req);
+    if (!user) return res.status(401).json({ error: 'Sin sesión' });
+    if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
+  }
   const usuario = String(req.body.usuario || '').replace(/^@/, '').trim();
   if (!usuario) return res.status(400).json({ error: 'Falta el usuario' });
   if (sessions.has(usuario)) return res.json(sessionStatus(sessions.get(usuario)));

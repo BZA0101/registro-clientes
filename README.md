@@ -78,6 +78,30 @@ WA_VERIFY_TOKEN=<cualquier clave que elijas>
 GROQ_API_KEY=<key de console.groq.com>    # transcripcion + resumen IA de lives
 ```
 
+## Cobrar con Stripe (plan Pro)
+
+Sin `STRIPE_KEY` el servidor corre en modo abierto (todo gratis, para dev).
+Con Stripe configurado, Live/WhatsApp/IA requieren `plan=pro`.
+
+### En Stripe (stripe.com)
+1. **Products → Add product**: "Plan Pro" → precio recurrente (ej. $199 MXN/mes)
+   → copia el **Price ID** (`price_...`).
+2. **Developers → API keys** → copia la **Secret key** (`sk_...`).
+3. **Developers → Webhooks → Add endpoint**:
+   `https://TU-SERVIDOR/api/stripe/webhook` → eventos:
+   `checkout.session.completed` y `customer.subscription.deleted`
+   → copia el **Signing secret** (`whsec_...`).
+
+### Env vars extra en el servidor
+```
+STRIPE_KEY=sk_live_...           # o sk_test_ para pruebas
+STRIPE_PRICE_PRO=price_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+Para darte Pro a ti mismo sin pagar: Supabase → Table editor → `perfiles`
+→ cambia `plan` a `pro` en tu usuario.
+
 ### En la app
 Ajustes → WhatsApp automático → pega Phone ID, token, número y la
 auto-respuesta que se manda al primer mensaje de cada lead.
