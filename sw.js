@@ -1,5 +1,5 @@
-const CACHE = 'clientes-v6';
-const ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest'];
+const CACHE = 'clientes-v12';
+const ASSETS = ['./', './index.html', './styles.css', './app.js', './supabase-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));

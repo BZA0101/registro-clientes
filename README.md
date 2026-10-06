@@ -1,9 +1,28 @@
 # Registro de Clientes (PWA para iPhone)
 
-App web instalable en iPhone para registrar clientes diarios: nombre, WhatsApp,
-resultado (separación / en conversación / se cayó), motivo de caída y seguimiento.
-La data aterriza en Google Sheets (descargable como Excel) y también se puede
-exportar a .xlsx/.csv directo desde la app.
+App web instalable para el embudo de ventas de un asesor: leads → conversación →
+separación → venta (con monto). La data vive en Supabase (con login) y también
+puede replicarse a Google Sheets o exportarse a .xlsx/.csv desde la app.
+
+## Login + base de datos (Supabase, 10 min)
+
+1. supabase.com → New project (gratis).
+2. SQL Editor → pega todo `supabase/schema.sql` → Run.
+3. Settings → API → copia **Project URL** y **anon public key**.
+4. Pégalas en `supabase-config.js` (queda para todos) o en la app:
+   Ajustes → Supabase (solo ese dispositivo).
+5. Authentication → Sign In / Providers: deja Email activado.
+   Para pruebas rápidas, desactiva "Confirm email" en
+   Authentication → Sign In / Up → Email (si no, hay que confirmar el correo).
+
+Sin claves la app funciona igual que antes (localStorage, sin login).
+
+## Embudo de estados
+
+`nuevo` → `conversando` → `separado` → `venta` (con monto y fecha)
+y `cayo` (con motivo) desde cualquier etapa.
+En **Clientes**: filtros Nuevos / Conversando / Separaciones / Ventas / Caídos.
+En **Panel**: $ vendido del mes, ticket promedio y embudo de conversión.
 
 ## Conectar el Excel (15 min)
 
@@ -36,6 +55,32 @@ Listo. El Sheet se llena solo con dos pestañas:
 - **Estado actual**: una fila por cliente, siempre con su último estado.
 
 Para tenerlo en Excel: en el Sheet → Archivo → Descargar → Microsoft Excel (.xlsx).
+
+## WhatsApp automático (leads que llegan solos)
+
+Cuando alguien escribe al número de WhatsApp Business del asesor, el lead se
+crea solo en "Nuevos" con su primer mensaje, y se puede auto-responder.
+
+### En Meta for Developers (una vez)
+1. developers.facebook.com → My Apps → Create app → tipo **Business**.
+2. Dentro de la app → **WhatsApp → API Setup** → ahí salen:
+   - **Phone number ID** y el **token** (para producción genera uno permanente
+     en Business Settings → System Users).
+3. **Configuration → Webhook**: URL = `https://TU-SERVIDOR/api/wa/webhook`,
+   Verify token = el valor de `WA_VERIFY_TOKEN` del servidor. Suscríbete al
+   campo **messages**.
+
+### En el servidor (Render → Environment)
+```
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_KEY=<service_role key>   # NUNCA en el frontend
+WA_VERIFY_TOKEN=<cualquier clave que elijas>
+GROQ_API_KEY=<key de console.groq.com>    # transcripcion + resumen IA de lives
+```
+
+### En la app
+Ajustes → WhatsApp automático → pega Phone ID, token, número y la
+auto-respuesta que se manda al primer mensaje de cada lead.
 
 ## Funciones
 - **Hoy**: resumen del día, seguimientos por retomar, registrar cliente.
