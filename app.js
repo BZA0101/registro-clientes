@@ -6,7 +6,7 @@ const CONFIG = {
   SCRIPT_URL: localStorage.getItem('scriptUrl') || '',
   // La misma clave que pusiste en CLAVE en el Apps Script (si la pusiste).
   TOKEN: localStorage.getItem('syncToken') || '',
-  // URL del servidor en Render. Vacio = mismo origen (localhost).
+  // URL del servidor backend (Render). Vacio = mismo origen (localhost / Netlify proxy).
   API_URL: localStorage.getItem('apiUrl') || 'https://registro-clientes-54nw.onrender.com',
 };
 
@@ -1191,10 +1191,10 @@ function viewAjustes() {
       </button>
     </div>
 
-    <div class="section-title">Servidor (Render)</div>
+    <div class="section-title">Servidor</div>
     <div class="list form"><label class="input-row"><span>URL</span>
       <input id="cfg-api" placeholder="https://tu-app.onrender.com" value="${esc(CONFIG.API_URL)}" autocomplete="off" autocapitalize="none"></label></div>
-    <p class="hint">La URL que te da Render al publicar el servidor. Sin esto no funciona la pestaña Live.</p>
+    <p class="hint">URL del backend (Render). Déjala en blanco si usas Netlify con el proxy configurado.</p>
 
     <div class="section-title">Supabase</div>
     ${sb ? `

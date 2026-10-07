@@ -2,6 +2,12 @@
   publish = "."
   command = "echo static"
 
+[[redirects]]
+  from = "/api/*"
+  to = "https://registro-clientes-54nw.onrender.com/api/:splat"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]
