@@ -953,10 +953,11 @@ async function generarResumenIA(usuario, resumen) {
 
 function viewLive() {
   if (liveResumen) return viewLiveResumen(liveResumen);
-  if (monetizacion && !esPro() && liveLimite.cargado && liveLimite.restantes <= 0) return viewUpgrade();
+  const rest = liveLimite.cargado ? Number(liveLimite.restantes) : NaN;
+  if (monetizacion && !esPro() && !isNaN(rest) && rest <= 0) return viewUpgrade();
   const activos = Object.values(liveSessions);
-  const freeBadge = monetizacion && !esPro() && liveLimite.cargado
-    ? `<div class="live-limit">Hoy te quedan <b>${liveLimite.restantes}</b> análisis${liveLimite.restantes === 1 ? '' : 's'} gratis</div>`
+  const freeBadge = monetizacion && !esPro() && liveLimite.cargado && !isNaN(rest)
+    ? `<div class="live-limit">Hoy te quedan <b>${rest}</b> análisis gratis</div>`
     : '';
   return `
     <div class="card" style="margin-top:8px">
@@ -971,12 +972,14 @@ function viewLive() {
 
     ${activos.map(viewLiveCard).join('')}
 
-    <div class="section-title">Competencia (${compList.length})</div>
-    <div class="list form"><label class="input-row"><span>Agregar</span>
-      <input id="comp-user" placeholder="@competidor" autocomplete="off" autocapitalize="none"></label></div>
-    <button class="secondary" onclick="addCompetidor()">Guardar competidor</button>
-    <div id="comp-list">${viewCompList()}</div>
-    <div id="comp-report">${viewCompReport()}</div>`;
+    <div class="section-title">Competencia ${!esPro() ? '<span class="pro-badge">Pro</span>' : ''}</div>
+    ${monetizacion && !esPro()
+      ? `<div class="pro-card"><b>Análisis de competencia</b><p>Agrega competidores de TikTok y compara métricas, picos, comentarios y palabras clave. Disponible en Pro.</p><button class="primary" onclick="go('upgrade')">Ver Plan Pro</button></div>`
+      : `<div class="list form"><label class="input-row"><span>Agregar</span>
+          <input id="comp-user" placeholder="@competidor" autocomplete="off" autocapitalize="none"></label></div>
+        <button class="secondary" onclick="addCompetidor()">Guardar competidor</button>
+        <div id="comp-list">${viewCompList()}</div>
+        <div id="comp-report">${viewCompReport()}</div>`}`;
 }
 
 function viewLiveCard(d) {
@@ -1213,8 +1216,10 @@ function viewAjustes() {
 
     ${isAdmin() ? `<button class="secondary" style="margin-top:10px" onclick="go('admin')">Panel de admin</button>` : ''}
 
-    <div class="section-title">WhatsApp</div>
-    <div id="wa-connect">${viewWhatsAppConnect()}</div>
+    <div class="section-title">WhatsApp ${!esPro() ? '<span class="pro-badge">Pro</span>' : ''}</div>
+    ${monetizacion && !esPro()
+      ? `<div class="pro-card"><b>Leads automáticos de WhatsApp</b><p>Conecta tu WhatsApp Web y cada número que te escriba entra solo en <b>Nuevos</b>. Desbloquéalo con Pro.</p><button class="primary" onclick="go('upgrade')">Ver Plan Pro</button></div>`
+      : `<div id="wa-connect">${viewWhatsAppConnect()}</div>`}
     ` : ''}
 
     <div class="section-title">Exportar</div>
@@ -1357,8 +1362,9 @@ function viewUpgrade() {
     rechazado: ['Rechazado', 'var(--bad)']
   }[solicitudPago.estado] : null;
 
-  const quedan = !esPro() && liveLimite.cargado && liveLimite.restantes < 9999
-    ? `<div class="live-limit pulse">Te quedan <b>${liveLimite.restantes}</b> lives gratis hoy</div>`
+  const rest = liveLimite.cargado ? Number(liveLimite.restantes) : NaN;
+  const quedan = !esPro() && !isNaN(rest) && rest < 9999
+    ? `<div class="live-limit pulse">Te quedan <b>${rest}</b> lives gratis hoy</div>`
     : '';
 
   return `

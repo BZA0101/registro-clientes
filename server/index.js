@@ -255,11 +255,26 @@ async function authUser(req) {
   } catch { return null; }
 }
 
-/* ---------- WhatsApp Web: conexion por QR, solo lectura de leads ---------- */
+/* ---------- WhatsApp Web: conexion por QR, solo lectura de leads (Pro) ---------- */
 const wa = initWhatsApp({ sbRest, crearLeadWa, authUser });
-app.get('/api/whatsapp/status', wa.status);
-app.post('/api/whatsapp/connect', wa.connect);
-app.post('/api/whatsapp/disconnect', wa.disconnect);
+app.get('/api/whatsapp/status', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro', locked: true });
+  wa.status(req, res);
+});
+app.post('/api/whatsapp/connect', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro', locked: true });
+  wa.connect(req, res);
+});
+app.post('/api/whatsapp/disconnect', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro', locked: true });
+  wa.disconnect(req, res);
+});
 
 /* ---------- Pagos manuales: Plin/Yape + voucher ---------- */
 function isAdmin(email) { return email === ADMIN_EMAIL; }
@@ -793,15 +808,20 @@ async function cerrarSesion(usuario, razon) {
   return { activo: false, resumen };
 }
 
-/* ---------- Competencia ---------- */
+/* ---------- Competencia (Pro) ---------- */
 data.competidores = data.competidores || [];
 
-app.get('/api/competidores', (req, res) => res.json(data.competidores.map(c => ({
-  ...c,
-  analizando: sessions.has(c.usuario),
-}))));
+app.get('/api/competidores', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro' });
+  res.json(data.competidores.map(c => ({ ...c, analizando: sessions.has(c.usuario) })));
+});
 
-app.post('/api/competidores', (req, res) => {
+app.post('/api/competidores', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro' });
   const usuario = String(req.body.usuario || '').replace(/^@/, '').trim();
   if (!usuario) return res.status(400).json({ error: 'Falta el usuario' });
   if (data.competidores.some(c => c.usuario === usuario)) return res.json({ ok: true });
@@ -809,7 +829,10 @@ app.post('/api/competidores', (req, res) => {
   persist(); res.json({ ok: true });
 });
 
-app.delete('/api/competidores/:usuario', (req, res) => {
+app.delete('/api/competidores/:usuario', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro' });
   const u = req.params.usuario;
   if (sessions.has(u)) cerrarSesion(u, 'Eliminado de competencia');
   data.competidores = data.competidores.filter(c => c.usuario !== u);
@@ -817,7 +840,10 @@ app.delete('/api/competidores/:usuario', (req, res) => {
 });
 
 // Reporte agregado de competencia
-app.get('/api/competidores/reporte', (req, res) => {
+app.get('/api/competidores/reporte', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) return res.status(402).json({ error: 'Requiere plan Pro' });
   const users = new Set(data.competidores.map(c => c.usuario));
   const vidas = data.lives.filter(l => users.has(l.usuario));
   const porCuenta = {};

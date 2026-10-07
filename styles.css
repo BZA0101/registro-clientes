@@ -1001,6 +1001,12 @@ body.sheet-open { overflow: hidden; }
 .plan-social b { display: block; font-size: 16px; margin-bottom: 6px; }
 .plan-social p { font-size: 14px; line-height: 1.5; opacity: .95; margin: 0; }
 
+/* ---------- Pro badges / cards ---------- */
+.pro-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 50px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; vertical-align: middle; margin-left: 6px; }
+.pro-card { background: var(--card); border-radius: var(--radius); padding: 18px; margin: 10px 0 16px; box-shadow: 0 4px 20px rgba(93,61,36,.07); text-align: center; }
+.pro-card b { display: block; font-size: 16px; color: var(--text); margin-bottom: 6px; }
+.pro-card p { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
