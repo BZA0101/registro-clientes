@@ -1329,7 +1329,22 @@ function guardarUrl() {
 }
 
 /* ---------- Conexion WhatsApp Web por QR (Baileys) ---------- */
-const waState = { status: 'disconnected', qr: null, jid: null, polling: null };
+const waState = { status: 'disconnected', qr: null, jid: null, polling: null, error: null };
+
+async function waFetch(path, opts = {}) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 45000);
+  try {
+    return await apiFetch(path, {
+      ...opts,
+      headers: {
+        ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        ...(opts.headers || {})
+      },
+      signal: controller.signal
+    });
+  } finally { clearTimeout(t); }
+}
 
 function fmtJid(jid) {
   if (!jid) return '';
@@ -1363,6 +1378,7 @@ function viewWhatsAppConnect() {
       <p class="wa-desc">${isCon
         ? 'Los números que te escriban entrarán solos a <b>Clientes → Nuevos</b>.'
         : 'Vincula WhatsApp Web una sola vez. Después, cada número que te escriba se guarda solo.'}</p>
+      ${s.error ? `<div class="wa-tip">${ICON.alert}<span>${esc(s.error)}</span></div>` : ''}
       ${!isCon
         ? `<button class="primary wa-btn" onclick="waConnect()" id="wa-btn" ${s.status === 'connecting' || s.status === 'qr' ? 'disabled' : ''}>
              ${s.status === 'connecting' ? 'Conectando…' : s.status === 'qr' ? 'Esperando que escanees…' : 'Conectar WhatsApp'}
@@ -1380,11 +1396,11 @@ function viewWhatsAppConnect() {
 
 async function waStatus() {
   try {
-    const r = await apiFetch('/api/whatsapp/status');
+    const r = await waFetch('/api/whatsapp/status');
     const d = await r.json();
     if (d.error) return;
-    const changed = waState.status !== d.status || waState.qr !== d.qr || waState.jid !== d.jid;
-    Object.assign(waState, d);
+    const changed = waState.status !== d.status || waState.qr !== d.qr || waState.jid !== d.jid || waState.error;
+    Object.assign(waState, { ...d, error: null });
     if (changed) {
       const el = document.getElementById('wa-connect');
       if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
@@ -1401,25 +1417,29 @@ async function waConnect() {
   const btn = document.getElementById('wa-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Conectando…'; }
   try {
-    const r = await apiFetch('/api/whatsapp/connect', { method: 'POST' });
+    waState.error = null;
+    const r = await waFetch('/api/whatsapp/connect', { method: 'POST' });
     const d = await r.json();
-    Object.assign(waState, d);
+    if (d.error) throw new Error(d.error);
+    Object.assign(waState, { ...d, error: null });
     const el = document.getElementById('wa-connect');
     if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
     if (d.status !== 'connected' && !waState.polling) {
       waState.polling = setInterval(waStatus, 3000);
     }
   } catch (e) {
-    alert('No se pudo iniciar la conexión. Intenta de nuevo.');
+    waState.error = e.message || 'No se pudo conectar. El servidor puede estar despertando; intenta de nuevo.';
+    waState.status = 'disconnected';
+    const el = document.getElementById('wa-connect');
+    if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
   }
-  waStatus();
 }
 
 async function waDisconnect() {
   try {
-    await apiFetch('/api/whatsapp/disconnect', { method: 'POST' });
+    await waFetch('/api/whatsapp/disconnect', { method: 'POST' });
     if (waState.polling) { clearInterval(waState.polling); waState.polling = null; }
-    Object.assign(waState, { status: 'disconnected', qr: null, jid: null });
+    Object.assign(waState, { status: 'disconnected', qr: null, jid: null, error: null });
     const el = document.getElementById('wa-connect');
     if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
   } catch {}
