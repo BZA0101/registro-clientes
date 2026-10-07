@@ -1,4 +1,4 @@
-const CACHE = 'clientes-v23';
+const CACHE = 'clientes-v24';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './supabase-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', e => {

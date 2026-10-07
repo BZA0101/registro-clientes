@@ -981,6 +981,26 @@ body.sheet-open { overflow: hidden; }
 #ptr.visible { height: 72px; }
 #ptr svg { width: 20px; height: 20px; animation: spin 1s linear infinite; }
 
+/* ---------- Live limit badge ---------- */
+.live-limit { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #fff8e6; color: #8a6d2f; border-radius: 50px; font-size: 13px; font-weight: 700; margin: 10px auto 0; }
+.live-limit b { font-size: 15px; }
+.live-limit.pulse { animation: pulseBadge 1.5s ease-in-out 2; }
+@keyframes pulseBadge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+/* ---------- Upgrade marketing ---------- */
+.plan-why { margin: 14px 0; }
+.why-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 10px; }
+.plan-compare { background: var(--card); border-radius: var(--radius); padding: 14px; margin: 14px 0; box-shadow: 0 4px 20px rgba(93,61,36,.07); }
+.pc-row { display: grid; grid-template-columns: 1fr 50px 50px; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--sep); font-size: 14px; }
+.pc-row:last-child { border-bottom: none; }
+.pc-head { font-weight: 700; color: var(--text); font-size: 13px; text-transform: uppercase; opacity: .7; }
+.pc-row span:first-child { color: var(--text); }
+.pc-y { color: var(--ok); font-weight: 700; text-align: center; }
+.pc-n { color: var(--muted); text-align: center; }
+.plan-social { background: linear-gradient(135deg, var(--accent), #8a6a42); color: #fff; border-radius: var(--radius); padding: 18px; margin: 14px 0; text-align: center; }
+.plan-social b { display: block; font-size: 16px; margin-bottom: 6px; }
+.plan-social p { font-size: 14px; line-height: 1.5; opacity: .95; margin: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

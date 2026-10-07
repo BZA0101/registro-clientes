@@ -73,6 +73,17 @@ create table if not exists wa_conexiones (
   conectado timestamptz default now()
 );
 
+-- Uso diario de analisis de TikTok Live (2 gratis por dia para usuarios free)
+create table if not exists live_uso (
+  user_id uuid primary key references auth.users on delete cascade,
+  fecha text not null,          -- YYYY-MM-DD
+  usos int default 0,
+  actualizado timestamptz default now()
+);
+alter table live_uso enable row level security;
+drop policy if exists "own" on live_uso;
+create policy "own" on live_uso for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- Suscripciones push por usuario
 create table if not exists push_subs (
   id bigint generated always as identity primary key,

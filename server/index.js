@@ -34,6 +34,8 @@ const GROQ_API = 'https://api.groq.com/openai/v1';
 const STRIPE_KEY = process.env.STRIPE_KEY || '';
 const STRIPE_WH = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_PRICE = process.env.STRIPE_PRICE_PRO || '';
+/* Monetizacion: por defecto activa (Pro requerido para lives). Pon MONETIZACION=false para desactivar. */
+const MONETIZACION = process.env.MONETIZACION !== 'false';
 /* Admin para aprobar pagos manuales (Plin/Yape) */
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'zapatabraulio458@gmail.com';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -448,15 +450,40 @@ const stripePost = (ruta, params) =>
     body: params.toString(),
   }).then(r => r.json());
 
-/* Plan del usuario: sin Stripe configurado todo queda abierto */
+/* Plan del usuario: con monetizacion activa solo Pro puede analizar lives */
 async function esPro(user) {
-  if (!STRIPE_KEY) return true;
+  if (!MONETIZACION) return true;
   if (!user || !user.id) return false;
   const p = await sbRest(`perfiles?user_id=eq.${user.id}&select=plan`);
   return !!(p && p[0] && p[0].plan === 'pro');
 }
 
-app.get('/api/plan', (req, res) => res.json({ monetizacion: true }));
+async function liveRestantes(user) {
+  if (await esPro(user)) return 9999;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const rows = await sbRest(`live_uso?user_id=eq.${user.id}&select=usos,fecha`);
+  if (!rows || !rows.length) return 2;
+  if (rows[0].fecha !== hoy) return 2;
+  return Math.max(0, 2 - rows[0].usos);
+}
+
+async function usarLive(user) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const rows = await sbRest(`live_uso?user_id=eq.${user.id}&select=usos,fecha`);
+  if (!rows || !rows.length) {
+    await sbRest('live_uso', { method: 'POST', body: { user_id: user.id, fecha: hoy, usos: 1 } });
+    return 1;
+  }
+  if (rows[0].fecha !== hoy) {
+    await sbRest(`live_uso?user_id=eq.${user.id}`, { method: 'PATCH', body: { fecha: hoy, usos: 1, actualizado: new Date().toISOString() } });
+    return 1;
+  }
+  const nuevo = rows[0].usos + 1;
+  await sbRest(`live_uso?user_id=eq.${user.id}`, { method: 'PATCH', body: { usos: nuevo, actualizado: new Date().toISOString() } });
+  return nuevo;
+}
+
+app.get('/api/plan', (req, res) => res.json({ monetizacion: MONETIZACION }));
 
 app.post('/api/stripe/checkout', async (req, res) => {
   const user = await authUser(req);
@@ -660,10 +687,11 @@ function detenerCaptura(s) {
 }
 
 app.post('/api/live/start', async (req, res) => {
-  if (STRIPE_KEY) {   // con monetizacion activa el analisis de lives es Pro
-    const user = await authUser(req);
-    if (!user) return res.status(401).json({ error: 'Sin sesión' });
-    if (!await esPro(user)) return res.status(402).json({ error: 'Requiere plan Pro' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (MONETIZACION && !(await esPro(user))) {
+    const rest = await liveRestantes(user);
+    if (rest <= 0) return res.status(402).json({ error: 'Límite de 2 lives gratuitos alcanzado. Mejora a Pro para analizar sin límite.' });
   }
   const usuario = String(req.body.usuario || '').replace(/^@/, '').trim();
   if (!usuario) return res.status(400).json({ error: 'Falta el usuario' });
@@ -680,6 +708,9 @@ app.post('/api/live/start', async (req, res) => {
     likes: 0, regalos: 0, seguidores: 0, joins: 0, leads: [], kw: {}, words: {},
     transcript: [] };
   sessions.set(usuario, s);
+
+  /* Graba uso del live para el limite diario de usuarios free */
+  if (MONETIZACION && !(await esPro(user))) await usarLive(user);
 
   /* Captura del audio del stream directo en el servidor (sin micro) */
   if (GROQ_KEY && ffmpegBin) {
@@ -728,6 +759,14 @@ app.post('/api/live/stop', async (req, res) => {
   if (usuario && sessions.has(usuario)) return res.json(await cerrarSesion(usuario, 'Detenido'));
   if (!usuario && sessions.size) return res.json(await cerrarSesion([...sessions.keys()][0], 'Detenido'));
   res.json({ activo: false });
+});
+
+app.get('/api/live/limite', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const pro = await esPro(user);
+  const rest = await liveRestantes(user);
+  res.json({ pro, restantes: rest });
 });
 
 app.get('/api/live/historial', (req, res) => res.json(data.lives.slice(-20).reverse()));

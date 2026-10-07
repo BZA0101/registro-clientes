@@ -126,6 +126,7 @@ let corrigiendo = false;
 let livePoll = null;
 let liveResumen = null;
 let liveError = '';
+let liveLimite = { restantes: 2, pro: false, cargado: false };
 
 const save = () => {
   localStorage.setItem('clients', JSON.stringify(clients));
@@ -238,7 +239,7 @@ function go(s, id) {
   if (livePoll && s !== 'live') { clearInterval(livePoll); livePoll = null; }
   if (s === 'live') {
     showLoading('Cargando, espera por favor…', 'Despertando el servidor, primera vez puede tardar ~40 segundos');
-    loadComps().then(() => { hideLoading(); if (screen === 'live') render(); });
+    Promise.all([loadLiveLimite(), loadComps()]).then(() => { hideLoading(); if (screen === 'live') render(); });
   }
   render();
 }
@@ -952,11 +953,15 @@ async function generarResumenIA(usuario, resumen) {
 
 function viewLive() {
   if (liveResumen) return viewLiveResumen(liveResumen);
-  if (session && monetizacion && !esPro()) return viewUpgrade();
+  if (monetizacion && !esPro() && liveLimite.cargado && liveLimite.restantes <= 0) return viewUpgrade();
   const activos = Object.values(liveSessions);
+  const freeBadge = monetizacion && !esPro() && liveLimite.cargado
+    ? `<div class="live-limit">Hoy te quedan <b>${liveLimite.restantes}</b> análisis${liveLimite.restantes === 1 ? '' : 's'} gratis</div>`
+    : '';
   return `
     <div class="card" style="margin-top:8px">
       <div class="section-title" style="margin-top:0">Analizar un live</div>
+      ${freeBadge}
       <div class="list form"><label class="input-row"><span>Usuario</span>
         <input id="live-user" placeholder="@usuario" autocomplete="off" autocapitalize="none" value="${esc(window._liveUser||'')}"></label></div>
       <p class="hint">Si está en vivo, mide viewers, comentarios y detecta posibles clientes hasta que lo detengas.</p>
@@ -972,26 +977,6 @@ function viewLive() {
     <button class="secondary" onclick="addCompetidor()">Guardar competidor</button>
     <div id="comp-list">${viewCompList()}</div>
     <div id="comp-report">${viewCompReport()}</div>`;
-}
-
-function viewUpgrade() {
-  return `
-    <div class="card auth-card">
-      <h2 class="auth-title">Plan Pro</h2>
-      <p class="hint" style="margin:8px 0 14px;text-align:center">Desbloquea las herramientas de análisis:</p>
-      <div class="list">
-        <div class="row"><span class="avatar icon">${ICON.wa}</span>
-          <span class="row-main"><span class="name">Leads automáticos de WhatsApp</span>
-          <span class="sub">Cada mensaje entrante crea el lead solo</span></span></div>
-        <div class="row"><span class="avatar icon">${ICON.bell}</span>
-          <span class="row-main"><span class="name">Análisis de lives de TikTok</span>
-          <span class="sub">Viewers, leads y competencia en tiempo real</span></span></div>
-        <div class="row"><span class="avatar icon">${ICON.doc}</span>
-          <span class="row-main"><span class="name">Voz del live + resumen IA</span>
-          <span class="sub">Transcripción y reporte de qué funcionó</span></span></div>
-      </div>
-      <button class="primary mt" onclick="upgrade()">Mejorar a Pro</button>
-    </div>`;
 }
 
 function viewLiveCard(d) {
@@ -1088,7 +1073,10 @@ async function startLive(preUser) {
     });
     const d = await r.json();
     hideLoading();
-    if (!r.ok) { liveError = d.error || 'No se pudo conectar'; return render(); }
+    if (!r.ok) {
+      if (r.status === 402) { await loadLiveLimite(); return viewUpgrade ? go('upgrade') : (liveError = d.error || 'Requiere Pro', render()); }
+      liveError = d.error || 'No se pudo conectar'; return render();
+    }
     liveSessions[d.usuario] = d; render();
     if (!livePoll) livePoll = setInterval(pollLive, 3000);
   } catch {
@@ -1133,6 +1121,14 @@ async function stopLive(usuario) {
     if (!Object.keys(liveSessions).length && livePoll) { clearInterval(livePoll); livePoll = null; }
     loadComps(); render();
   } catch { liveError = 'No se pudo detener'; render(); }
+}
+
+async function loadLiveLimite() {
+  try {
+    const r = await apiFetch('/api/live/limite');
+    liveLimite = await r.json();
+    liveLimite.cargado = true;
+  } catch { liveLimite = { restantes: 2, pro: false, cargado: true }; }
 }
 
 async function loadComps() {
@@ -1361,19 +1357,45 @@ function viewUpgrade() {
     rechazado: ['Rechazado', 'var(--bad)']
   }[solicitudPago.estado] : null;
 
+  const quedan = !esPro() && liveLimite.cargado && liveLimite.restantes < 9999
+    ? `<div class="live-limit pulse">Te quedan <b>${liveLimite.restantes}</b> lives gratis hoy</div>`
+    : '';
+
   return `
   <button class="back" onclick="go('ajustes')">${ICON.back}Ajustes</button>
   <div class="section-title">Plan Pro</div>
   <div class="plan-hero">
     <div class="plan-price"><span>S/</span><b>20</b><span>soles</span></div>
     <p class="plan-sub">Pago único mensual · Perú</p>
+    ${quedan}
   </div>
   ${statusBadge ? `<div class="plan-status" style="color:${statusBadge[1]};border-color:${statusBadge[1]}">${ICON.alert}<b>${statusBadge[0]}</b></div>` : ''}
-  <div class="plan-features">
-    <div class="plan-feat">${ICON.check}<span>Leads automáticos de WhatsApp Web</span></div>
-    <div class="plan-feat">${ICON.check}<span>Análisis de lives de TikTok</span></div>
-    <div class="plan-feat">${ICON.check}<span>Transcripción y resumen con IA</span></div>
+
+  <div class="plan-why">
+    <div class="why-title">¿Qué desbloqueas con Pro?</div>
+    <div class="plan-features">
+      <div class="plan-feat">${ICON.check}<span><b>Lives ilimitados</b> de TikTok al día</span></div>
+      <div class="plan-feat">${ICON.check}<span><b>Leads automáticos</b> de WhatsApp Web sin apps</span></div>
+      <div class="plan-feat">${ICON.check}<span><b>Transcripción + resumen IA</b> de cada live</span></div>
+      <div class="plan-feat">${ICON.check}<span><b>Competidores</b> y comparativa de métricas</span></div>
+    </div>
   </div>
+
+  <div class="plan-compare">
+    <div class="pc-row pc-head"><span>Función</span><span>Free</span><span>Pro</span></div>
+    <div class="pc-row"><span>Registrar clientes</span><span class="pc-y">✓</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>2 lives gratis / día</span><span class="pc-y">✓</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>Lives ilimitados</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>Leads WhatsApp automático</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>Resumen IA del live</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>Análisis de competidores</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
+  </div>
+
+  <div class="plan-social">
+    <b>Por menos de un café al día</b>
+    <p>Asesores que usan el análisis de lives duplican su tasa de cierre porque detectan clientes calientes en tiempo real.</p>
+  </div>
+
   ${esPro() ? `<div class="plan-active">${ICON.check}<b>Tu plan Pro está activo</b></div>` : ''}
   ${!esPro() && (!solicitudPago || solicitudPago.estado !== 'pendiente')
     ? `<div class="upgrade-form">
