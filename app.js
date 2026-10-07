@@ -1166,8 +1166,8 @@ function viewAjustes() {
       ? `<button class="secondary" onclick="abrirPortal()">Administrar suscripción</button>`
       : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
 
-    <div class="section-title">Leads de WhatsApp</div>
-    <div id="lead-guide">${viewLeadGuide()}</div>
+    <div class="section-title">WhatsApp</div>
+    <div id="wa-connect">${viewWhatsAppConnect()}</div>
     ` : ''}
 
     <div class="section-title">Exportar</div>
@@ -1328,142 +1328,101 @@ function guardarUrl() {
   screen = 'ok'; window._okMsg = 'Conexión guardada. Los registros llegarán a tu hoja.'; render();
 }
 
-/* ---------- Instructivo interactivo de captura de leads ---------- */
-const lg = { os: null, paso: 0, dir: 'fwd', result: null, probando: false };
+/* ---------- Conexion WhatsApp Web por QR (Baileys) ---------- */
+const waState = { status: 'disconnected', qr: null, jid: null, polling: null };
 
-function lgSteps(os, url) {
-  const json = '{"de":"%NTITLE","texto":"%NTEXT"}';
-  return os === 'ios' ? [
-    { ico: 'link', corto: 'Enlace', titulo: 'Copia tu enlace',
-      txt: 'Es <b>personal</b>: todo lo que le llegue se guarda como lead en tu cuenta.',
-      copies: [['Tu enlace', url]] },
-    { ico: 'tap', corto: 'Atajo', titulo: 'Crea el atajo "Nuevo lead"',
-      txt: 'Abre la app <b>Atajos</b>, crea uno nuevo y agrega esta acción:',
-      path: ['+', 'Agregar acción', 'Obtener portapapeles'],
-      ext: ['shortcuts://create-shortcut', 'Abrir Atajos'] },
-    { ico: 'bolt', corto: 'Conectar', titulo: 'Conéctalo a tu app',
-      txt: 'Debajo agrega <b>Obtener contenido de URL</b> y llénalo así:',
-      path: ['Obtener contenido de URL', 'Mostrar más'],
-      kv: [['URL', 'tu enlace del paso 1'], ['Método', 'POST'], ['Cuerpo', 'JSON'], ['Campo', 'de → Portapapeles']],
-      copies: [['URL', url]],
-      tip: 'Toca <b>ⓘ → Agregar a pantalla de inicio</b> para tenerlo a un toque.' },
-    { ico: 'check', corto: 'Usar', titulo: 'Úsalo con cada cliente',
-      txt: 'En el chat: <b>mantén presionado el número → Copiar</b> → toca tu atajo. El lead entra a <b>Nuevos</b>.',
-      test: true },
-  ] : [
-    { ico: 'play', corto: 'Instalar', titulo: 'Instala Tasker',
-      txt: 'Es la app que <b>lee las notificaciones de WhatsApp</b> y nos manda el número. Pago único (~$70 MXN).',
-      ext: ['https://play.google.com/store/apps/details?id=net.dinglisch.android.taskerm', 'Abrir en Play Store'],
-      tip: 'Al abrirla acepta el permiso de <b>acceso a notificaciones</b> — sin eso no puede leerlas.' },
-    { ico: 'bell', corto: 'Detectar', titulo: 'Detecta cada mensaje',
-      txt: 'Crea un <b>Perfil</b> que se active con las notificaciones de WhatsApp:',
-      path: ['Perfiles', '+', 'Evento', 'UI', 'Notificación', 'WhatsApp'] },
-    { ico: 'link', corto: 'Enviar', titulo: 'Envía el número a tu app',
-      txt: 'Asigna al perfil una <b>tarea nueva</b> con esta acción:',
-      path: ['+', 'Net', 'HTTP Request'],
-      kv: [['Método', 'POST'], ['Tipo', 'application/json']],
-      copies: [['URL', url], ['Cuerpo', json]] },
-    { ico: 'bolt', corto: 'Probar', titulo: '¡Listo! Pruébalo',
-      txt: 'Crea un lead de prueba aquí. Luego pide a alguien <b>que no tengas guardado</b> que te escriba.',
-      test: true,
-      tip: 'Contactos ya guardados llegan con su nombre (sin número) — agrégalo en el detalle del cliente.' },
-  ];
+function fmtJid(jid) {
+  if (!jid) return '';
+  const n = String(jid).replace(/\D/g, '');
+  if (n.length === 12 && n.startsWith('52')) return `+${n.slice(0,2)} ${n.slice(2,4)} ${n.slice(4,8)} ${n.slice(8)}`;
+  if (n.length === 13 && n.startsWith('521')) return `+${n.slice(0,2)} ${n.slice(3,5)} ${n.slice(5,9)} ${n.slice(9)}`;
+  return '+' + n;
 }
 
-function viewLeadGuide() {
+function viewWhatsAppConnect() {
   if (!session) return '';
-  const detectado = esIOS() ? 'ios' : 'android';
-  const os = lg.os || detectado;
-  const url = `${CONFIG.API_URL}/api/leads/${session.user.id}`;
-  const steps = lgSteps(os, url);
-  const s = steps[lg.paso];
-  const prevSeg = window._lgSeg ?? (os === 'ios' ? 1 : 0);
-  window._lgSeg = os === 'ios' ? 1 : 0;
-  const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
-  const path = s.path ? `<div class="lg-path">${s.path.map((p, i) =>
-    `${i ? arrow.replace('<svg', `<svg style="animation-delay:${i * .12}s"`) : ''}<span class="${i === s.path.length - 1 ? 'last' : ''}" style="animation-delay:${.1 + i * .12}s">${esc(p)}</span>`).join('')}</div>` : '';
-  const copies = (s.copies || []).map(([l, v]) => `
-    <button class="lg-copy" data-copy="${esc(v)}" onclick="lgCopy(this)">
-      <div><span class="lbl">${esc(l)}</span><code>${esc(v)}</code></div>
-      <span class="cp">${ICON.copy}</span>
-    </button>`).join('');
-  const r = lg.result;
+  const s = waState;
+  const labels = {
+    disconnected: 'Desconectado',
+    connecting: 'Conectando…',
+    qr: 'Esperando QR',
+    connected: 'Conectado',
+    logged_out: 'Sesión cerrada'
+  };
+  const label = labels[s.status] || s.status;
+  const isCon = s.status === 'connected';
   return `
-  <div class="lg">
-    <div class="lg-hero">
-      <h3>Tus leads de WhatsApp, solos</h3>
-      <p>Cada número que te escribe entra directo a <b style="color:#fff">Nuevos</b>.</p>
-      <div class="lg-scene">
-        <div class="lg-phone"><div class="lg-notif"><span class="wa">${ICON.wa}</span>
-          <div><b>+52 55 1234 5678</b><small>Hola, me interesa…</small></div></div></div>
-        <div class="lg-flow"></div>
-        <div class="lg-app"><small>Nuevos</small>
-          <div class="lg-lead"><i>+5</i><div><b>+52 55 1234…</b><em>● Nuevo lead</em></div></div>
-          <div class="lg-lead"><i>A</i><div><b>Ana López</b><em style="color:var(--muted)">ayer</em></div></div>
-        </div>
+  <div class="wa-connect">
+    <div class="wa-card">
+      <div class="wa-icon ${s.status}">${ICON.wa}</div>
+      <div class="wa-status">
+        <span class="wa-dot ${s.status}"></span>
+        <b>${label}</b>
+        ${isCon ? `<small>${fmtJid(s.jid)}</small>` : ''}
       </div>
+      <p class="wa-desc">${isCon
+        ? 'Los números que te escriban entrarán solos a <b>Clientes → Nuevos</b>.'
+        : 'Vincula WhatsApp Web una sola vez. Después, cada número que te escriba se guarda solo.'}</p>
+      ${!isCon
+        ? `<button class="primary wa-btn" onclick="waConnect()" id="wa-btn" ${s.status === 'connecting' || s.status === 'qr' ? 'disabled' : ''}>
+             ${s.status === 'connecting' ? 'Conectando…' : s.status === 'qr' ? 'Esperando que escanees…' : 'Conectar WhatsApp'}
+           </button>`
+        : `<button class="secondary wa-btn" onclick="waDisconnect()">Cerrar sesión de WhatsApp</button>`}
     </div>
-
-    <p class="os-detect">${os === detectado ? `<i></i>Detectamos tu ${os === 'ios' ? 'iPhone' : 'Android'}` : `Guía para ${os === 'ios' ? 'iPhone' : 'Android'}`}</p>
-    <div class="seg2" data-on="${prevSeg}" data-to="${os === 'ios' ? 1 : 0}">
-      <button class="${os === 'ios' ? '' : 'on'}" onclick="lgOS('android')">${ICON.android} Android</button>
-      <button class="${os === 'ios' ? 'on' : ''}" onclick="lgOS('ios')">${ICON.apple} iPhone</button>
-    </div>
-
-    <div class="lg-progress">${steps.map((st, i) => `
-      <button class="${i < lg.paso ? 'done' : i === lg.paso ? 'on' : ''}" onclick="lgGo(${i})"><i></i><small>${i + 1}. ${st.corto}</small></button>`).join('')}
-    </div>
-
-    <div class="lg-step ${lg.dir}">
-      <div class="lg-step-head">
-        <span class="lg-num" data-n="${lg.paso + 1}">${ICON[s.ico]}</span>
-        <div><small>Paso ${lg.paso + 1} de ${steps.length}</small><h4>${s.titulo}</h4></div>
-      </div>
-      <p>${s.txt}</p>
-      ${path}
-      ${s.kv ? `<div class="lg-kv">${s.kv.map(([k, v]) => `<span>${k}</span><b>${esc(v)}</b>`).join('')}</div>` : ''}
-      ${copies}
-      ${s.ext ? `<a class="lg-ext" href="${s.ext[0]}" target="_blank" rel="noopener">${s.ext[1]} ${ICON.ext}</a>` : ''}
-      ${s.test ? `<button class="primary lg-test" onclick="probarCaptura()" ${lg.probando ? 'disabled' : ''}>${lg.probando ? 'Enviando…' : `${ICON.bolt} Crear lead de prueba`}</button>` : ''}
-      ${s.test && r ? `<div class="lg-result ${r.ok ? '' : 'err'}"><span class="ok">${r.ok ? ICON.check : ICON.alert}</span>
-        <div><b>${r.ok ? '¡Funciona! Llegó el lead' : 'No se pudo crear'}</b><small>${esc(r.msg)}</small></div></div>` : ''}
-      ${s.tip ? `<div class="lg-tip">${ICON.alert}<span>${s.tip}</span></div>` : ''}
-    </div>
-
-    <div class="lg-nav">
-      <button class="prev" onclick="lgGo(${lg.paso - 1})" ${lg.paso ? '' : 'disabled'} aria-label="Anterior">${ICON.back}</button>
-      ${lg.paso < steps.length - 1
-        ? `<button class="next" onclick="lgGo(${lg.paso + 1})">Siguiente ${ICON.next}</button>`
-        : `<button class="next" onclick="go('clientes')">Ver mis leads ${ICON.next}</button>`}
-    </div>
+    ${s.status === 'qr' && s.qr
+      ? `<div class="wa-qr"><img src="${esc(s.qr)}" alt="QR WhatsApp"><p>Abre WhatsApp en tu teléfono → <b>⋮</b> → <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b> → escanea este código.</p></div>`
+      : ''}
+    ${s.status === 'disconnected' || s.status === 'logged_out'
+      ? `<div class="wa-tip">${ICON.alert}<span>Solo leemos el número del remitente. No enviamos respuestas automáticas, así el riesgo de bloqueo es mucho menor.</span></div>`
+      : ''}
   </div>`;
 }
 
-function lgRefresh() {
-  const el = document.getElementById('lead-guide'); if (!el) return;
-  el.innerHTML = viewLeadGuide();
-  animarSegs(el);
+async function waStatus() {
+  try {
+    const r = await apiFetch('/api/whatsapp/status');
+    const d = await r.json();
+    if (d.error) return;
+    const changed = waState.status !== d.status || waState.qr !== d.qr || waState.jid !== d.jid;
+    Object.assign(waState, d);
+    if (changed) {
+      const el = document.getElementById('wa-connect');
+      if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
+    }
+    if (d.status !== 'connected' && !waState.polling) {
+      waState.polling = setInterval(waStatus, 3000);
+    } else if (d.status === 'connected' && waState.polling) {
+      clearInterval(waState.polling); waState.polling = null;
+    }
+  } catch {}
 }
-function lgGo(n) {
-  const total = lgSteps(lg.os || (esIOS() ? 'ios' : 'android'), '').length;
-  if (n < 0 || n >= total || n === lg.paso) return;
-  lg.dir = n > lg.paso ? 'fwd' : 'back'; lg.paso = n; lgRefresh();
-}
-function lgOS(os) {
-  if ((lg.os || (esIOS() ? 'ios' : 'android')) === os) return;
-  lg.os = os; lg.paso = 0; lg.dir = 'fwd'; lg.result = null; lgRefresh();
-}
-async function lgCopy(btn) {
-  const txt = btn.dataset.copy;
-  try { await navigator.clipboard.writeText(txt); }
-  catch {
-    const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t);
-    t.select(); document.execCommand('copy'); t.remove();
+
+async function waConnect() {
+  const btn = document.getElementById('wa-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Conectando…'; }
+  try {
+    const r = await apiFetch('/api/whatsapp/connect', { method: 'POST' });
+    const d = await r.json();
+    Object.assign(waState, d);
+    const el = document.getElementById('wa-connect');
+    if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
+    if (d.status !== 'connected' && !waState.polling) {
+      waState.polling = setInterval(waStatus, 3000);
+    }
+  } catch (e) {
+    alert('No se pudo iniciar la conexión. Intenta de nuevo.');
   }
-  btn.classList.add('copied');
-  btn.querySelector('.cp').innerHTML = ICON.check;
-  toast('Copiado');
-  setTimeout(() => { btn.classList.remove('copied'); btn.querySelector('.cp').innerHTML = ICON.copy; }, 1800);
+  waStatus();
+}
+
+async function waDisconnect() {
+  try {
+    await apiFetch('/api/whatsapp/disconnect', { method: 'POST' });
+    if (waState.polling) { clearInterval(waState.polling); waState.polling = null; }
+    Object.assign(waState, { status: 'disconnected', qr: null, jid: null });
+    const el = document.getElementById('wa-connect');
+    if (el) { el.innerHTML = viewWhatsAppConnect(); animarSegs(el); }
+  } catch {}
 }
 
 let toastT;
@@ -1630,6 +1589,8 @@ function render() {
   title.textContent = TITLES[screen];
   const app = document.getElementById('app');
   app.innerHTML = VIEWS[screen]();
+  if (screen === 'ajustes') setTimeout(waStatus, 50);
+  else if (waState.polling) { clearInterval(waState.polling); waState.polling = null; }
   document.body.classList.toggle('is-login', screen === 'login');
   document.getElementById('tabbar').classList.toggle('hidden', screen === 'login');
   const tab = TAB_OF[screen] || screen;

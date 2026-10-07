@@ -95,3 +95,28 @@ create policy "own" on lives         for all using (auth.uid() = user_id) with c
 create policy "own" on competidores  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own" on wa_conexiones for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own" on push_subs     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Auth state de WhatsApp Web (Baileys) por usuario.
+-- Cada par clave/valor se serializa y se guarda en Supabase porque
+-- Render no tiene disco persistente en el plan gratuito.
+create table if not exists wa_auth_state (
+  user_id uuid not null references auth.users on delete cascade,
+  key text not null,
+  value text not null,
+  updated_at timestamptz default now(),
+  primary key (user_id, key)
+);
+
+-- Estado de la sesión de WhatsApp Web (jid conectado, último QR, etc.)
+create table if not exists wa_sessions (
+  user_id uuid primary key references auth.users on delete cascade,
+  jid text default '',
+  connected boolean default false,
+  updated_at timestamptz default now()
+);
+
+alter table wa_auth_state enable row level security;
+alter table wa_sessions     enable row level security;
+
+create policy "own" on wa_auth_state for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "own" on wa_sessions     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

@@ -19,6 +19,8 @@ const ffmpegBin = require('ffmpeg-static');
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
+const { initWhatsApp } = require('./whatsapp');
+
 /* Supabase desde el servidor (service_role: SOLO aqui, nunca en el frontend) */
 const SB_URL = process.env.SUPABASE_URL || '';
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -102,7 +104,7 @@ const sbRest = async (ruta, opts = {}) => {
       apikey: SB_KEY,
       Authorization: `Bearer ${SB_KEY}`,
       'Content-Type': 'application/json',
-      Prefer: 'return=minimal',
+      Prefer: opts.prefer || 'return=minimal',
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
@@ -246,6 +248,12 @@ async function authUser(req) {
     return r.ok ? await r.json() : null;
   } catch { return null; }
 }
+
+/* ---------- WhatsApp Web: conexion por QR, solo lectura de leads ---------- */
+const wa = initWhatsApp({ sbRest, crearLeadWa, authUser });
+app.get('/api/whatsapp/status', wa.status);
+app.post('/api/whatsapp/connect', wa.connect);
+app.post('/api/whatsapp/disconnect', wa.disconnect);
 
 /* ---------- Groq: transcribir audio del live ---------- */
 app.post('/api/live/transcribe', express.raw({ type: () => true, limit: '15mb' }), async (req, res) => {
