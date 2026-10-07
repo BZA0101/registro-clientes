@@ -89,11 +89,17 @@ alter table competidores enable row level security;
 alter table wa_conexiones enable row level security;
 alter table push_subs    enable row level security;
 
+drop policy if exists "own" on perfiles;
 create policy "own" on perfiles      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on clientes;
 create policy "own" on clientes      for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on lives;
 create policy "own" on lives         for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on competidores;
 create policy "own" on competidores  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on wa_conexiones;
 create policy "own" on wa_conexiones for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on push_subs;
 create policy "own" on push_subs     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Auth state de WhatsApp Web (Baileys) por usuario.
@@ -118,5 +124,7 @@ create table if not exists wa_sessions (
 alter table wa_auth_state enable row level security;
 alter table wa_sessions     enable row level security;
 
+drop policy if exists "own" on wa_auth_state;
 create policy "own" on wa_auth_state for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on wa_sessions;
 create policy "own" on wa_sessions     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
