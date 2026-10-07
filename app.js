@@ -116,6 +116,7 @@ let clients = JSON.parse(localStorage.getItem('clients') || '[]');
 let pendingSync = JSON.parse(localStorage.getItem('pendingSync') || '[]');
 let screen = 'hoy';
 let filter = 'todos';
+let clientSearch = '';
 let detailId = null;
 let form = null;
 let pickMotivo = false;
@@ -165,6 +166,7 @@ const ICON = {
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/></svg>',
   next: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   bolt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
   apple: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.4 2-3.6 2.1-3.7a4.5 4.5 0 0 0-3.5-1.9c-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8a4.7 4.7 0 0 0-4 2.4c-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4a10.6 10.6 0 0 0 1.4-2.8 4.3 4.3 0 0 1-2.6-3.9zM14 5.4a4.3 4.3 0 0 0 1-3.1 4.4 4.4 0 0 0-2.9 1.5 4.1 4.1 0 0 0-1 3 3.6 3.6 0 0 0 2.9-1.4z"/></svg>',
   android: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.5 19.4 6.3a.4.4 0 0 0-.7-.4l-1.8 3.2a11 11 0 0 0-9.8 0L5.3 5.9a.4.4 0 0 0-.7.4l1.8 3.2A10.4 10.4 0 0 0 1 18h22a10.4 10.4 0 0 0-5.4-8.5zM7 15.2a1.1 1.1 0 1 1 0-2.2 1.1 1.1 0 0 1 0 2.2zm10 0a1.1 1.1 0 1 1 0-2.2 1.1 1.1 0 0 1 0 2.2z"/></svg>',
@@ -221,6 +223,10 @@ function go(s, id) {
   screen = s; detailId = id || null; form = null;
   pickMotivo = false; pickVenta = false; corrigiendo = false;
   if (s === 'upgrade') upgradeForm = { metodo: 'yape', telefono: '', voucherPreview: null, voucherFile: null, loading: false, error: '', ok: false };
+  if (s === 'perfil') {
+    const meta = (session && session.user && session.user.user_metadata) || {};
+    perfilForm = { nombre: (perfil && perfil.nombre) || meta.nombre || '', saludo: meta.saludo || 'bienvenido', avatar: null, preview: null, saving: false, error: '', ok: false };
+  }
   if (s === 'admin') { adminPendientes = []; setTimeout(loadPendientes, 50); }
   /* Leads de WhatsApp pueden llegar en cualquier momento: refresca al navegar */
   if ((s === 'hoy' || s === 'clientes') && Date.now() - lastPull > 30000) {
@@ -243,6 +249,35 @@ const seguimientosPendientes = () =>
 const diasDesde = iso => iso ? Math.floor((Date.now() - new Date(iso + 'T12:00')) / 86400000) : null;
 const monthKey = d => d.slice(0, 7);
 const ofMonth = m => clients.filter(c => monthKey(c.fecha) === m);
+function vibrate(pattern=20) { try { if (navigator.vibrate) navigator.vibrate(Array.isArray(pattern) ? pattern : [pattern]); } catch {} }
+function emptyState(msg, iconName='user') { return `<div class="empty-state">${ICON[iconName] || ICON.user}<b>${esc(msg)}</b></div>`; }
+
+/* ---------- Confeti ---------- */
+function confetti() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c = document.createElement('canvas'); c.id = 'confetti'; document.body.appendChild(c);
+  const ctx = c.getContext('2d'); c.width = window.innerWidth; c.height = window.innerHeight;
+  const colors = ['#7c9f60', '#5d3d24', '#c6a45c', '#f5f1e8'];
+  const pieces = Array.from({length: 60}, () => ({
+    x: Math.random() * c.width, y: -20 - Math.random() * 100,
+    w: 6 + Math.random() * 6, h: 6 + Math.random() * 6,
+    vx: -2 + Math.random() * 4, vy: 3 + Math.random() * 4,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * 360, vrot: -5 + Math.random() * 10
+  }));
+  let anim;
+  function draw() {
+    ctx.clearRect(0, 0, c.width, c.height);
+    pieces.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vrot;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.color; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    });
+    if (pieces.some(p => p.y < c.height + 40)) anim = requestAnimationFrame(draw); else c.remove();
+  }
+  draw(); setTimeout(() => { cancelAnimationFrame(anim); c.remove(); }, 3000);
+}
 const initial = n => esc((n.trim()[0] || '?').toUpperCase());
 
 const status = c => `<span class="status ${ESTADOS[c.estado].cls}"><i></i>${ESTADOS[c.estado].label}</span>`;
@@ -482,8 +517,8 @@ async function doSetPass() {
 /* Pantalla de bienvenida al entrar (reutiliza el estilo del splash) */
 function showWelcome() {
   const meta = (session && session.user && session.user.user_metadata) || {};
-  const nombre = (meta.nombre || (session && session.user && session.user.email || '').split('@')[0] || '')
-    .split(' ')[0].toUpperCase();
+  const nombreRaw = (perfil && perfil.nombre) || meta.nombre || (session && session.user && session.user.email || '').split('@')[0] || '';
+  const nombre = nombreRaw.split(' ')[0].toUpperCase();
   const saludo = meta.saludo === 'bienvenida' ? 'BIENVENIDA' : 'BIENVENIDO';
   const el = document.createElement('div');
   el.id = 'splash';
@@ -569,7 +604,7 @@ function viewHoy() {
 
     <div class="section-title">Registrados hoy</div>
     ${hoy.length ? list(hoy, c => esc(c.telefono)) :
-      `<div class="empty">Aún no registras clientes hoy.</div>`}
+      emptyState('Aún no registras clientes hoy.', 'user')}
   `;
 }
 
@@ -679,7 +714,12 @@ function viewDetalle() {
 function viewClientes() {
   const counts = { todos: clients.length };
   for (const k of Object.keys(ESTADOS)) counts[k] = clients.filter(c => c.estado===k).length;
-  const items = (filter==='todos' ? clients : clients.filter(c => c.estado===filter)).slice().reverse();
+  const term = clientSearch.trim().toLowerCase();
+  const base = filter==='todos' ? clients : clients.filter(c => c.estado===filter);
+  const items = base.filter(c =>
+    (c.nombre || '').toLowerCase().includes(term) ||
+    (c.telefono || '').replace(/\D/g, '').includes(term.replace(/\D/g, ''))
+  ).slice().reverse();
 
   /* Apartado Ventas: total del mes arriba de la lista */
   let ventasHead = '';
@@ -714,12 +754,15 @@ function viewClientes() {
   };
 
   return `
+    <div class="search-bar">
+      <input type="search" placeholder="Buscar por nombre o teléfono…" value="${esc(clientSearch)}" oninput="clientSearch=this.value;render()" autocomplete="off">
+    </div>
     <div class="segmented scroll">
       ${[['todos','Todos'],['nuevo','Nuevos'],['conversando','Conversando'],['separado','Separaciones'],['venta','Ventas'],['cayo','Caídos']]
         .map(([k,l]) => `<button class="${filter===k?'active':''}" onclick="filter='${k}';render()">${l}<small>${counts[k]||0}</small></button>`).join('')}
     </div>
     ${ventasHead}
-    ${items.length ? list(items, sub) : `<div class="empty">${EMPTY[filter] || 'Sin clientes aquí todavía.'}</div>`}
+    ${items.length ? list(items, sub) : emptyState(clientSearch ? 'Ningún cliente coincide.' : (EMPTY[filter] || 'Sin clientes aquí todavía.'))}
   `;
 }
 
@@ -1148,10 +1191,15 @@ function viewAjustes() {
   return `
     ${session ? `
     <div class="section-title">Cuenta</div>
-    <div class="list">
-      <div class="info-row"><span>Correo</span><b>${esc(session.user.email || '')}</b></div>
+    <div class="profile-card-mini" onclick="go('perfil')">
+      <span class="avatar lg">${perfil && perfil.avatar_url ? `<img src="${esc(perfil.avatar_url)}" alt="avatar">` : initial((perfil && perfil.nombre) || session.user.user_metadata?.nombre || session.user.email || '')}</span>
+      <div class="profile-mini-info">
+        <b>${esc((perfil && perfil.nombre) || session.user.user_metadata?.nombre || session.user.email.split('@')[0])}</b>
+        <span>${esc(session.user.email || '')}</span>
+        <small>${esPro() ? 'Plan Pro' : 'Plan Free'}</small>
+      </div>
+      ${ICON.chevron}
     </div>
-    <button class="destructive" style="margin-top:10px" onclick="doLogout()">Cerrar sesión</button>
 
     ${monetizacion ? `
     <div class="section-title">Plan</div>
@@ -1221,6 +1269,76 @@ function viewAjustes() {
     <button class="primary" onclick="guardarUrl()">Guardar conexión</button>
 
     <button class="destructive" onclick="borrarTodo()">Borrar datos del iPhone</button>`;
+}
+
+/* ---------- Perfil del asesor ---------- */
+let perfilForm = { nombre: '', saludo: 'bienvenido', avatar: null, preview: null, saving: false, error: '', ok: false };
+
+function viewPerfil() {
+  const meta = (session && session.user && session.user.user_metadata) || {};
+  const nombre = esc((perfil && perfil.nombre) || meta.nombre || '');
+  const email = esc((session && session.user.email) || '');
+  const saludo = perfilForm.saludo || meta.saludo || 'bienvenido';
+  const avatar = perfilForm.preview || (perfil && perfil.avatar_url) || '';
+  const initials = initial(nombre) || initial(email) || '?';
+  return `
+  <button class="back" onclick="go('ajustes')">${ICON.back}Ajustes</button>
+  <div class="section-title">Mi perfil</div>
+  <div class="profile-card" style="--delay:0">
+    <div class="avatar-uploader">
+      ${avatar ? `<img src="${esc(avatar)}" alt="avatar" class="avatar xl">` : `<span class="avatar xl">${initials}</span>`}
+      <input type="file" id="pf-avatar" accept="image/*" onchange="previewAvatar(this)" hidden>
+      <label for="pf-avatar" class="avatar-btn">${ICON.camera} Cambiar foto</label>
+    </div>
+    <div class="plan-badge">${esPro() ? 'Plan Pro' : 'Plan Free'}</div>
+  </div>
+  <div class="list form" style="--delay:1">
+    <label class="input-row"><span>Nombre</span>
+      <input id="pf-nombre" value="${nombre}" oninput="perfilForm.nombre=this.value" autocomplete="off"></label>
+    <label class="input-row"><span>Correo</span>
+      <input value="${email}" disabled></label>
+  </div>
+  <div class="section-title" style="--delay:2">¿Cómo te saludamos?</div>
+  <div class="saludo-pick" style="--delay:2">
+    <button type="button" class="${saludo === 'bienvenida' ? 'on' : ''}" onclick="perfilForm.saludo='bienvenida';render()">Bienvenida<small>femenino</small></button>
+    <button type="button" class="${saludo === 'bienvenido' ? 'on' : ''}" onclick="perfilForm.saludo='bienvenido';render()">Bienvenido<small>masculino</small></button>
+  </div>
+  ${perfilForm.error ? `<div class="form-err" style="--delay:3">${ICON.alert}<span>${esc(perfilForm.error)}</span></div>` : ''}
+  ${perfilForm.ok ? `<div class="plan-active" style="--delay:3">${ICON.check}<b>Perfil guardado</b></div>` : ''}
+  <button class="primary mt" style="--delay:4" onclick="guardarPerfil()" ${perfilForm.saving ? 'disabled' : ''}>
+    ${perfilForm.saving ? 'Guardando…' : 'Guardar perfil'}
+  </button>`;
+}
+
+function previewAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  perfilForm.avatar = file;
+  const reader = new FileReader();
+  reader.onload = e => { perfilForm.preview = e.target.result; render(); };
+  reader.readAsDataURL(file);
+}
+
+async function guardarPerfil() {
+  perfilForm.error = ''; perfilForm.ok = false; perfilForm.saving = true; render();
+  try {
+    let avatarUrl = (perfil && perfil.avatar_url) || '';
+    if (perfilForm.avatar) {
+      const ext = perfilForm.avatar.type.includes('png') ? 'png' : 'jpg';
+      const path = `${session.user.id}/avatar.${ext}`;
+      const { error: upErr } = await sb.storage.from('avatars').upload(path, perfilForm.avatar, { upsert: true, contentType: perfilForm.avatar.type });
+      if (upErr) throw new Error(upErr.message);
+      const { data } = sb.storage.from('avatars').getPublicUrl(path);
+      avatarUrl = data.publicUrl;
+    }
+    const nombre = perfilForm.nombre !== undefined ? perfilForm.nombre : ((perfil && perfil.nombre) || '');
+    await sb.from('perfiles').update({ nombre, avatar_url: avatarUrl }).eq('user_id', session.user.id);
+    await sb.auth.updateUser({ data: { saludo: perfilForm.saludo } });
+    await loadPerfil();
+    perfilForm.ok = true;
+    vibrate();
+  } catch (e) { perfilForm.error = e.message || 'No se pudo guardar.'; }
+  perfilForm.saving = false; render();
 }
 
 /* ---------- Pagos manuales: Plin/Yape + voucher ---------- */
@@ -1315,6 +1433,7 @@ async function enviarSolicitud() {
     if (!r.ok) throw new Error(d.error || 'No se pudo enviar');
     upgradeForm.ok = true;
     await loadMisSolicitudes();
+    vibrate();
   } catch (e) {
     upgradeForm.error = e.message || 'Error al enviar. Intenta de nuevo.';
   }
@@ -1369,6 +1488,8 @@ async function aprobarSolicitud(id, aprobar) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Error');
     await loadPendientes();
+    vibrate([20, 30, 20]);
+    toast(aprobar ? 'Pago aprobado · Pro activado' : 'Solicitud rechazada');
   } catch (e) { alert(e.message); }
 }
 
@@ -1413,6 +1534,8 @@ function guardarCliente() {
     c.fecha_venta = today();
   }
   clients.push(c); save(); syncRow(c); dbPush(c);
+  vibrate();
+  if (c.estado === 'venta') confetti();
   screen = 'ok'; window._okMsg = `${c.nombre} quedó registrado.`; render();
 }
 
@@ -1424,6 +1547,7 @@ function updEstado(e) {
   c.motivo = '';
   if (e === 'separado') c.seguimiento = '';
   c.estado = e; c.estado_fecha = today(); c.updated_at = new Date().toISOString();
+  vibrate();
   save(); syncRow(c); dbPush(c); render();
 }
 
@@ -1436,6 +1560,7 @@ function guardarVenta() {
   c.monto_venta = monto; c.fecha_venta = today();
   c.estado_fecha = today(); c.seguimiento = '';
   c.updated_at = new Date().toISOString();
+  vibrate(); confetti();
   save(); syncRow(c); dbPush(c); render();
 }
 
@@ -1474,6 +1599,7 @@ function guardarUrl() {
   apiFetch('/api/sheet-url', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: CONFIG.SCRIPT_URL }) }).catch(() => {});
   flushPending(); updateBadge();
+  vibrate();
   screen = 'ok'; window._okMsg = 'Conexión guardada. Los registros llegarán a tu hoja.'; render();
 }
 
@@ -1595,9 +1721,11 @@ async function waDisconnect() {
 }
 
 let toastT;
-function toast(msg) {
+function toast(msg, type='success') {
   const t = document.getElementById('toast'); if (!t) return;
-  t.innerHTML = `${ICON.check}<span>${esc(msg)}</span>`;
+  const icon = type === 'error' ? ICON.alert : type === 'warn' ? ICON.alert : ICON.check;
+  t.className = 'show ' + type;
+  t.innerHTML = `${icon}<span>${esc(msg)}</span>`;
   t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800);
 }
@@ -1721,11 +1849,11 @@ function borrarTodo() {
 /* ---------- Render ---------- */
 const VIEWS = { hoy: viewHoy, registrar: viewRegistrar, detalle: viewDetalle,
   clientes: viewClientes, live: viewLive, panel: viewPanel, ajustes: viewAjustes,
-  upgrade: viewUpgrade, admin: viewAdmin,
+  perfil: viewPerfil, upgrade: viewUpgrade, admin: viewAdmin,
   login: viewLogin, ok: () => viewOk(window._okMsg || '') };
 const TITLES = { hoy: 'Hoy', registrar: 'Nuevo cliente', detalle: '',
   clientes: 'Clientes', live: 'TikTok Live', panel: 'Panel', ajustes: 'Ajustes',
-  upgrade: 'Plan Pro', admin: 'Admin', login: 'Entrar', ok: '' };
+  perfil: 'Perfil', upgrade: 'Plan Pro', admin: 'Admin', login: 'Entrar', ok: '' };
 const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy' };
 
 /* Numeros que suben de 0 a su valor (hero, stats, %) */
@@ -1776,6 +1904,18 @@ function render() {
     window.scrollTo(0, 0);
   }
 }
+
+/* ---------- Ripple en botones ---------- */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('button.primary, button.secondary, button.destructive');
+  if (!btn) return;
+  const circle = document.createElement('span');
+  const d = Math.max(btn.clientWidth, btn.clientHeight);
+  const rect = btn.getBoundingClientRect();
+  circle.style.cssText = `position:absolute;border-radius:50%;background:rgba(255,255,255,.35);width:${d}px;height:${d}px;left:${e.clientX - rect.left - d/2}px;top:${e.clientY - rect.top - d/2}px;pointer-events:none;transform:scale(0);animation:ripple .6s linear`;
+  btn.appendChild(circle);
+  setTimeout(() => circle.remove(), 600);
+}, true);
 
 /* ---------- Arranque: sesion + datos ---------- */
 async function boot() {

@@ -895,6 +895,65 @@ body.is-login #topbar { display: none; }
 .admin-actions .approve { background: var(--ok); color: #fff; }
 .admin-actions .reject { background: var(--fill); color: var(--bad); }
 
+/* ---------- Perfil ---------- */
+.profile-card-mini { display: flex; align-items: center; gap: 14px; background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(93,61,36,.07); animation: rise .5s var(--ease) both; cursor: pointer; transition: transform .2s; }
+.profile-card-mini:active { transform: scale(.98); }
+.profile-card-mini .avatar { width: 56px; height: 56px; font-size: 22px; }
+.profile-card-mini .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-mini-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.profile-mini-info b { font-size: 16px; color: var(--text); }
+.profile-mini-info span { font-size: 13px; color: var(--muted); }
+.profile-mini-info small { font-size: 12px; color: var(--accent); font-weight: 700; }
+.profile-card { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 20px; background: var(--card); border-radius: var(--radius); margin-bottom: 18px; box-shadow: 0 4px 24px rgba(93,61,36,.08); animation: rise .5s var(--ease) both; }
+.avatar-uploader { position: relative; width: 110px; height: 110px; }
+.avatar-uploader .avatar { width: 110px; height: 110px; font-size: 40px; }
+.avatar-uploader .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-btn { position: absolute; bottom: -6px; right: -6px; display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px; border-radius: 50px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; box-shadow: 0 2px 8px rgba(93,61,36,.2); cursor: pointer; transition: transform .2s; }
+.avatar-btn:active { transform: scale(.92); }
+.avatar-btn svg { width: 14px; height: 14px; }
+.plan-badge { display: inline-flex; padding: 5px 14px; border-radius: 50px; font-size: 13px; font-weight: 700; color: #fff; background: var(--accent); }
+
+/* ---------- Ripple en botones ---------- */
+button.primary, button.secondary, button.destructive { position: relative; overflow: hidden; }
+.ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.35); transform: scale(0); animation: ripple .6s linear; pointer-events: none; }
+@keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+/* ---------- Toasts con variantes ---------- */
+#toast { display: flex; align-items: center; gap: 10px; position: fixed; left: 50%; bottom: 92px; transform: translate(-50%, 20px); padding: 12px 18px; border-radius: 14px; background: #3c2a1e; color: #fff; font-size: 14px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity .3s, transform .3s var(--ease); z-index: 120; box-shadow: 0 8px 24px rgba(93,61,36,.2); }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#toast.success { background: var(--ok); color: #fff; }
+#toast.warn { background: var(--warn); color: #2a1a0f; }
+#toast.error { background: var(--bad); color: #fff; }
+#toast svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ---------- Empty state ---------- */
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 36px 20px; color: var(--muted); animation: rise .5s var(--ease) both; }
+.empty-state svg { width: 56px; height: 56px; opacity: .35; }
+.empty-state b { font-size: 16px; color: var(--text); }
+.empty-state p { font-size: 14px; max-width: 260px; line-height: 1.5; }
+
+/* ---------- Skeleton ---------- */
+.skeleton { background: linear-gradient(90deg, var(--card) 25%, #f3efe7 50%, var(--card) 75%); background-size: 200% 100%; border-radius: 12px; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skeleton-row { height: 68px; margin-bottom: 10px; }
+.skeleton-hero { height: 140px; margin-bottom: 16px; }
+.skeleton-text { height: 14px; width: 60%; margin-bottom: 10px; }
+
+/* ---------- Pull to refresh ---------- */
+.ptr-wrap { position: relative; }
+.ptr-indicator { display: flex; align-items: center; justify-content: center; height: 0; overflow: hidden; transition: height .2s; color: var(--muted); }
+.ptr-indicator.visible { height: 52px; }
+.ptr-indicator svg { width: 22px; height: 22px; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Búsqueda ---------- */
+.search-bar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 12px 0; background: var(--bg); }
+.search-bar input { flex: 1; height: 44px; border: 1.5px solid var(--sep); border-radius: 12px; padding: 0 14px; font-size: 15px; background: var(--card); }
+.search-bar input:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- Confetti canvas ---------- */
+#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

@@ -9,6 +9,7 @@ create table if not exists perfiles (
   sheet_url text default '',          -- Google Sheets del usuario
   sheet_clave text default '',
   wa_autoreply text default '',       -- auto-respuesta de WhatsApp
+  avatar_url text default '',         -- URL de foto de perfil
   stripe_customer_id text default '',
   created_at timestamptz default now()
 );
@@ -151,3 +152,22 @@ create policy "own" on solicitudes_pago for all using (auth.uid() = user_id) wit
 alter table solicitudes_pago drop constraint if exists fk_solicitudes_perfil;
 alter table solicitudes_pago add constraint fk_solicitudes_perfil
   foreign key (user_id) references perfiles(user_id) on delete cascade;
+
+-- Buckets de Storage para vouchers y avatares
+insert into storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
+values ('vouchers', 'vouchers', false, false, 5242880, '{image/png,image/jpeg}')
+on conflict (id) do update set public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, false, 2097152, '{image/png,image/jpeg}')
+on conflict (id) do update set public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+
+-- Politicas de Storage para avatares (cada usuario sube/actualiza el suyo; lectura publica)
+drop policy if exists "Avatars public read" on storage.objects;
+create policy "Avatars public read" on storage.objects for select using (bucket_id = 'avatars');
+drop policy if exists "Avatars own insert" on storage.objects;
+create policy "Avatars own insert" on storage.objects for insert with check (bucket_id = 'avatars' and owner = auth.uid());
+drop policy if exists "Avatars own update" on storage.objects;
+create policy "Avatars own update" on storage.objects for update using (bucket_id = 'avatars' and owner = auth.uid());
+drop policy if exists "Avatars own delete" on storage.objects;
+create policy "Avatars own delete" on storage.objects for delete using (bucket_id = 'avatars' and owner = auth.uid());
