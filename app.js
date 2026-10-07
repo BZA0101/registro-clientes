@@ -220,6 +220,8 @@ function go(s, id) {
   if (sb && !session && s !== 'login') s = 'login';
   screen = s; detailId = id || null; form = null;
   pickMotivo = false; pickVenta = false; corrigiendo = false;
+  if (s === 'upgrade') upgradeForm = { metodo: 'yape', telefono: '', voucherPreview: null, voucherFile: null, loading: false, error: '', ok: false };
+  if (s === 'admin') { adminPendientes = []; setTimeout(loadPendientes, 50); }
   /* Leads de WhatsApp pueden llegar en cualquier momento: refresca al navegar */
   if ((s === 'hoy' || s === 'clientes') && Date.now() - lastPull > 30000) {
     lastPull = Date.now(); dbPull().then(() => { if (screen === s) render(); });
@@ -515,41 +517,35 @@ async function ensurePerfil() {
 }
 
 let perfil = null;
-let monetizacion = false;   // true cuando el servidor tiene Stripe configurado
+let monetizacion = false;   // true = pagos activos (manual Plin/Yape o Stripe)
 const esPro = () => !monetizacion || (perfil && perfil.plan === 'pro');
+let solicitudPago = null;   // ultima solicitud del usuario
+let adminPendientes = [];
+const ADMIN_EMAIL = 'zapatabraulio458@gmail.com';
+const isAdmin = () => session && session.user.email === ADMIN_EMAIL;
 
 async function loadMonetizacion() {
   try { monetizacion = !!(await (await apiFetch('/api/plan')).json()).monetizacion; }
   catch { monetizacion = false; }
 }
 
-async function upgrade() {
+async function loadMisSolicitudes() {
+  if (!session) return;
   try {
-    const r = await apiFetch('/api/stripe/checkout', {
-      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const d = await r.json();
-    if (d.url) location.href = d.url;
-    else alert(d.error || 'No se pudo abrir el pago.');
-  } catch { alert('Servidor no responde.'); }
+    const r = await apiFetch('/api/pago/mis-solicitudes', { headers: { Authorization: `Bearer ${session.access_token}` } });
+    const rows = await r.json();
+    solicitudPago = (rows || []).sort((a, b) => new Date(b.creado) - new Date(a.creado))[0] || null;
+  } catch { solicitudPago = null; }
 }
 
-async function abrirPortal() {
-  try {
-    const r = await apiFetch('/api/stripe/portal', {
-      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const d = await r.json();
-    if (d.url) location.href = d.url;
-    else alert(d.error || 'Sin suscripción activa.');
-  } catch { alert('Servidor no responde.'); }
-}
+function irUpgrade() { go('upgrade'); }
 
 async function loadPerfil() {
   if (!session || !sb) return;
   try {
     perfil = (await sb.from('perfiles').select('*').eq('user_id', session.user.id).maybeSingle()).data;
   } catch {}
+  await loadMisSolicitudes();
 }
 
 function viewHoy() {
@@ -1160,11 +1156,15 @@ function viewAjustes() {
     ${monetizacion ? `
     <div class="section-title">Plan</div>
     <div class="list">
-      <div class="info-row"><span>Plan actual</span><b>${esPro() ? 'Pro' : 'Free'}</b></div>
+      <div class="info-row"><span>Plan actual</span><b>${esPro() ? 'Pro' : solicitudPago && solicitudPago.estado === 'pendiente' ? 'En revisión' : 'Free'}</b></div>
     </div>
     ${esPro()
-      ? `<button class="secondary" onclick="abrirPortal()">Administrar suscripción</button>`
-      : `<button class="primary" style="margin-top:10px" onclick="upgrade()">Mejorar a Pro</button>`}` : ''}
+      ? `<button class="secondary" onclick="irUpgrade()">Ver plan Pro</button>`
+      : solicitudPago && solicitudPago.estado === 'pendiente'
+        ? `<button class="secondary" onclick="irUpgrade()">Solicitud en revisión</button>`
+        : `<button class="primary" style="margin-top:10px" onclick="irUpgrade()">Mejorar a Pro</button>`}` : ''}
+
+    ${isAdmin() ? `<button class="secondary" style="margin-top:10px" onclick="go('admin')">Panel de admin</button>` : ''}
 
     <div class="section-title">WhatsApp</div>
     <div id="wa-connect">${viewWhatsAppConnect()}</div>
@@ -1221,6 +1221,155 @@ function viewAjustes() {
     <button class="primary" onclick="guardarUrl()">Guardar conexión</button>
 
     <button class="destructive" onclick="borrarTodo()">Borrar datos del iPhone</button>`;
+}
+
+/* ---------- Pagos manuales: Plin/Yape + voucher ---------- */
+let upgradeForm = { metodo: 'yape', telefono: '', voucherPreview: null, voucherFile: null, loading: false, error: '', ok: false };
+
+function viewUpgrade() {
+  const s = upgradeForm;
+  if (s.ok) {
+    return `<div class="ok-flash"><div class="ok-icon">${ICON.check}</div>
+      <h2>Comprobante enviado</h2>
+      <p>Tu pago está en revisión. En cuanto el admin lo apruebe, tu plan cambiará a <b>Pro</b>.</p>
+      <button class="primary" onclick="go('hoy')">Listo</button></div>`;
+  }
+  const statusBadge = solicitudPago ? {
+    pendiente: ['En revisión', 'var(--warn)'],
+    aprobado: ['Aprobado', 'var(--ok)'],
+    rechazado: ['Rechazado', 'var(--bad)']
+  }[solicitudPago.estado] : null;
+
+  return `
+  <button class="back" onclick="go('ajustes')">${ICON.back}Ajustes</button>
+  <div class="section-title">Plan Pro</div>
+  <div class="plan-hero">
+    <div class="plan-price"><span>S/</span><b>20</b><span>soles</span></div>
+    <p class="plan-sub">Pago único mensual · Perú</p>
+  </div>
+  ${statusBadge ? `<div class="plan-status" style="color:${statusBadge[1]};border-color:${statusBadge[1]}">${ICON.alert}<b>${statusBadge[0]}</b></div>` : ''}
+  <div class="plan-features">
+    <div class="plan-feat">${ICON.check}<span>Leads automáticos de WhatsApp Web</span></div>
+    <div class="plan-feat">${ICON.check}<span>Análisis de lives de TikTok</span></div>
+    <div class="plan-feat">${ICON.check}<span>Transcripción y resumen con IA</span></div>
+  </div>
+  ${esPro() ? `<div class="plan-active">${ICON.check}<b>Tu plan Pro está activo</b></div>` : ''}
+  ${!esPro() && (!solicitudPago || solicitudPago.estado !== 'pendiente')
+    ? `<div class="upgrade-form">
+        <div class="seg2" data-on="${s.metodo === 'yape' ? 1 : 0}">
+          <button class="${s.metodo === 'plin' ? 'on' : ''}" onclick="seleccionarMetodo('plin')">Plin</button>
+          <button class="${s.metodo === 'yape' ? 'on' : ''}" onclick="seleccionarMetodo('yape')">Yape</button>
+        </div>
+        <div class="pay-instr">
+          <p>Realiza el pago de <b>S/ 20.00</b> a:</p>
+          <div class="pay-number"><b>937 478 810</b><button class="copy-mini" onclick="copiarTexto('937478810')">Copiar</button></div>
+        </div>
+        <label class="field">
+          <span class="ico">${ICON.phone}</span>
+          <input id="up-tel" type="tel" inputmode="tel" placeholder=" " value="${esc(s.telefono)}" oninput="upgradeForm.telefono=this.value">
+          <span>Número desde el que pagaste</span>
+        </label>
+        <div class="voucher-upload">
+          <input type="file" id="up-voucher" accept="image/*" onchange="previewVoucher(this)" hidden>
+          <label for="up-voucher" class="voucher-label ${s.voucherPreview ? 'has-img' : ''}">
+            ${s.voucherPreview ? `<img src="${esc(s.voucherPreview)}" alt="voucher">` : `<span>${ICON.bolt} Adjuntar captura del voucher</span>`}
+          </label>
+        </div>
+        ${s.error ? `<div class="form-err">${ICON.alert}<span>${esc(s.error)}</span></div>` : ''}
+        <button class="primary wa-btn" onclick="enviarSolicitud()" ${s.loading ? 'disabled' : ''}>
+          ${s.loading ? 'Enviando…' : 'Enviar comprobante'}
+        </button>
+      </div>`
+    : ''}
+  ${solicitudPago && solicitudPago.estado === 'rechazado' && solicitudPago.notas_admin ? `<div class="plan-note">${ICON.alert}<span>${esc(solicitudPago.notas_admin)}</span></div>` : ''}`;
+}
+
+function seleccionarMetodo(m) { upgradeForm.metodo = m; render(); }
+
+function previewVoucher(input) {
+  const file = input.files[0];
+  if (!file) return;
+  upgradeForm.voucherFile = file;
+  const reader = new FileReader();
+  reader.onload = e => { upgradeForm.voucherPreview = e.target.result; render(); };
+  reader.readAsDataURL(file);
+}
+
+async function enviarSolicitud() {
+  upgradeForm.error = '';
+  const telefono = String(upgradeForm.telefono || '').replace(/\D/g, '');
+  if (telefono.length < 8) { upgradeForm.error = 'Ingresa el número desde el que pagaste.'; render(); return; }
+  if (!upgradeForm.voucherFile) { upgradeForm.error = 'Adjunta la captura del voucher.'; render(); return; }
+  upgradeForm.loading = true; render();
+  try {
+    const fd = new FormData();
+    fd.append('metodo', upgradeForm.metodo);
+    fd.append('telefono', telefono);
+    fd.append('voucher', upgradeForm.voucherFile);
+    const r = await apiFetch('/api/pago/solicitar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: fd
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'No se pudo enviar');
+    upgradeForm.ok = true;
+    await loadMisSolicitudes();
+  } catch (e) {
+    upgradeForm.error = e.message || 'Error al enviar. Intenta de nuevo.';
+  }
+  upgradeForm.loading = false; render();
+}
+
+function copiarTexto(txt) {
+  try { navigator.clipboard.writeText(txt); } catch {}
+  toast('Copiado');
+}
+
+/* ---------- Panel de admin ---------- */
+function viewAdmin() {
+  const rows = adminPendientes;
+  return `
+  <button class="back" onclick="go('ajustes')">${ICON.back}Ajustes</button>
+  <div class="section-title">Solicitudes de pago</div>
+  ${rows.length ? rows.map(r => `
+    <div class="admin-card">
+      <div class="admin-head">
+        <b>${esc((r.perfiles && r.perfiles.nombre) || r.user_id)}</b>
+        <span>${esc((r.perfiles && r.perfiles.email) || '')}</span>
+        <small>${fmtFechaHora(new Date(r.creado))} · ${String(r.metodo).toUpperCase()} · S/ ${Number(r.monto).toFixed(2)}</small>
+      </div>
+      ${r.voucher_signed ? `<img src="${esc(r.voucher_signed)}" class="admin-voucher" alt="voucher">` : ''}
+      <div class="admin-tel"><b>Desde:</b> ${esc(r.telefono || '')}</div>
+      <div class="admin-actions">
+        <button class="reject" onclick="aprobarSolicitud(${r.id}, false)">Rechazar</button>
+        <button class="approve" onclick="aprobarSolicitud(${r.id}, true)">Aprobar</button>
+      </div>
+    </div>
+  `).join('') : `<div class="empty">No hay solicitudes pendientes</div>`}
+  <button class="secondary" style="margin-top:16px" onclick="loadPendientes()">Actualizar</button>`;
+}
+
+async function loadPendientes() {
+  try {
+    const r = await apiFetch('/api/pago/pendientes', { headers: { Authorization: `Bearer ${session.access_token}` } });
+    adminPendientes = await r.json();
+  } catch { adminPendientes = []; }
+  render();
+}
+
+async function aprobarSolicitud(id, aprobar) {
+  if (!confirm(aprobar ? '¿Aprobar pago y activar Pro?' : '¿Rechazar esta solicitud?')) return;
+  try {
+    const r = await apiFetch('/api/pago/aprobar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, aprobar })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Error');
+    await loadPendientes();
+  } catch (e) { alert(e.message); }
 }
 
 function viewOk(msg) {
@@ -1572,10 +1721,11 @@ function borrarTodo() {
 /* ---------- Render ---------- */
 const VIEWS = { hoy: viewHoy, registrar: viewRegistrar, detalle: viewDetalle,
   clientes: viewClientes, live: viewLive, panel: viewPanel, ajustes: viewAjustes,
+  upgrade: viewUpgrade, admin: viewAdmin,
   login: viewLogin, ok: () => viewOk(window._okMsg || '') };
 const TITLES = { hoy: 'Hoy', registrar: 'Nuevo cliente', detalle: '',
   clientes: 'Clientes', live: 'TikTok Live', panel: 'Panel', ajustes: 'Ajustes',
-  login: 'Entrar', ok: '' };
+  upgrade: 'Plan Pro', admin: 'Admin', login: 'Entrar', ok: '' };
 const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy' };
 
 /* Numeros que suben de 0 a su valor (hero, stats, %) */

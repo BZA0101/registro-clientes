@@ -128,3 +128,26 @@ drop policy if exists "own" on wa_auth_state;
 create policy "own" on wa_auth_state for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 drop policy if exists "own" on wa_sessions;
 create policy "own" on wa_sessions     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Solicitudes de pago manual (Plin/Yape). El admin revisa el voucher y marca Pro.
+create table if not exists solicitudes_pago (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users on delete cascade,
+  telefono text default '',            -- numero desde el que se pago
+  metodo text default '',              -- plin | yape
+  monto numeric default 20,            -- soles peruanos
+  estado text default 'pendiente',     -- pendiente | aprobado | rechazado
+  voucher_url text default '',         -- ruta en bucket "vouchers"
+  notas_admin text default '',
+  creado timestamptz default now(),
+  revisado_en timestamptz
+);
+
+alter table solicitudes_pago enable row level security;
+drop policy if exists "own" on solicitudes_pago;
+create policy "own" on solicitudes_pago for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Relacion directa con perfiles para poder hacer select=*,perfiles(nombre,email)
+alter table solicitudes_pago drop constraint if exists fk_solicitudes_perfil;
+alter table solicitudes_pago add constraint fk_solicitudes_perfil
+  foreign key (user_id) references perfiles(user_id) on delete cascade;

@@ -848,6 +848,53 @@ body.is-login #topbar { display: none; }
 .wa-tip { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border-radius: 14px; background: #f6efe4; color: #6d5a49; font-size: 13px; line-height: 1.45; }
 .wa-tip svg { width: 18px; height: 18px; color: var(--warn); flex-shrink: 0; margin-top: 1px; }
 
+/* ---------- Plan Pro / Upgrade ---------- */
+.plan-hero { text-align: center; padding: 30px 20px; background: var(--card); border-radius: var(--radius); box-shadow: 0 4px 24px rgba(93,61,36,.08); margin-bottom: 14px; animation: rise .6s var(--ease) both; }
+.plan-price { display: flex; align-items: baseline; justify-content: center; gap: 6px; color: var(--accent); }
+.plan-price span { font-size: 20px; font-weight: 600; }
+.plan-price b { font-size: 56px; font-weight: 700; line-height: 1; }
+.plan-sub { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.plan-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.plan-feat { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card); border-radius: 13px; box-shadow: 0 2px 10px rgba(93,61,36,.05); animation: rise .5s var(--ease) both; }
+.plan-feat:nth-child(2) { animation-delay: .05s; }
+.plan-feat:nth-child(3) { animation-delay: .1s; }
+.plan-feat svg { width: 22px; height: 22px; color: var(--ok); flex-shrink: 0; }
+.plan-feat span { font-size: 15px; color: var(--text); }
+.plan-status { display: flex; align-items: center; gap: 8px; justify-content: center; padding: 12px; border: 1.5px solid; border-radius: 13px; margin-bottom: 14px; font-size: 15px; animation: rise .5s var(--ease) both; }
+.plan-status svg { width: 20px; height: 20px; }
+.plan-active { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 16px; background: #eef4ec; color: #3f5d3b; border-radius: 14px; font-size: 15px; animation: pop .5s var(--spring) both; }
+.plan-active svg { width: 22px; height: 22px; }
+.plan-note { display: flex; gap: 10px; align-items: flex-start; padding: 14px; background: #fbefe9; color: var(--bad); border-radius: 14px; font-size: 14px; line-height: 1.45; margin-top: 14px; }
+.plan-note svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 2px; }
+.upgrade-form { display: flex; flex-direction: column; gap: 14px; animation: rise .6s var(--ease) .15s both; }
+.pay-instr { background: var(--card); padding: 18px; border-radius: var(--radius); text-align: center; box-shadow: 0 2px 10px rgba(93,61,36,.05); }
+.pay-instr p { color: var(--muted); font-size: 15px; margin-bottom: 10px; }
+.pay-number { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 24px; color: var(--text); }
+.copy-mini { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: var(--fill); color: var(--accent); transition: transform .2s; }
+.copy-mini:active { transform: scale(.94); }
+.voucher-upload { width: 100%; }
+.voucher-label { display: flex; align-items: center; justify-content: center; min-height: 160px; border: 2px dashed var(--sep); border-radius: 16px; background: var(--card); color: var(--muted); cursor: pointer; transition: border-color .2s, background .2s; overflow: hidden; }
+.voucher-label span { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.voucher-label.has-img { border-style: solid; border-color: var(--ok); }
+.voucher-label.has-img img { width: 100%; height: 160px; object-fit: cover; border-radius: 14px; }
+.voucher-label svg { width: 22px; height: 22px; }
+.form-err { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #fbefe9; color: var(--bad); border-radius: 12px; font-size: 14px; }
+.form-err svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* ---------- Admin panel ---------- */
+.admin-card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: 0 4px 20px rgba(93,61,36,.07); animation: rise .5s var(--ease) both; }
+.admin-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+.admin-head b { font-size: 16px; }
+.admin-head span { font-size: 13px; color: var(--muted); }
+.admin-head small { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.admin-voucher { width: 100%; border-radius: 12px; margin-bottom: 12px; }
+.admin-tel { font-size: 14px; color: var(--muted); margin-bottom: 14px; }
+.admin-actions { display: flex; gap: 10px; }
+.admin-actions button { flex: 1; height: 48px; border-radius: 14px; font-weight: 700; font-size: 15px; transition: transform .2s; }
+.admin-actions button:active { transform: scale(.96); }
+.admin-actions .approve { background: var(--ok); color: #fff; }
+.admin-actions .reject { background: var(--fill); color: var(--bad); }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

@@ -11,6 +11,7 @@ const path = require('path');
 const cron = require('node-cron');
 const webpush = require('web-push');
 const { TikTokLiveConnection } = require('tiktok-live-connector');
+const multer = require('multer');
 
 const os = require('os');
 const { spawn } = require('child_process');
@@ -33,6 +34,9 @@ const GROQ_API = 'https://api.groq.com/openai/v1';
 const STRIPE_KEY = process.env.STRIPE_KEY || '';
 const STRIPE_WH = process.env.STRIPE_WEBHOOK_SECRET || '';
 const STRIPE_PRICE = process.env.STRIPE_PRICE_PRO || '';
+/* Admin para aprobar pagos manuales (Plin/Yape) */
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'zapatabraulio458@gmail.com';
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
 app.use(cors());
@@ -255,6 +259,97 @@ app.get('/api/whatsapp/status', wa.status);
 app.post('/api/whatsapp/connect', wa.connect);
 app.post('/api/whatsapp/disconnect', wa.disconnect);
 
+/* ---------- Pagos manuales: Plin/Yape + voucher ---------- */
+function isAdmin(email) { return email === ADMIN_EMAIL; }
+
+async function uploadVoucher(file, filePath) {
+  const r = await fetch(`${SB_URL}/storage/v1/object/vouchers/${filePath}`, {
+    method: 'POST',
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+      'x-upsert': 'true',
+      'Content-Type': file.mimetype,
+    },
+    body: file.buffer,
+  });
+  return r.ok ? filePath : null;
+}
+
+async function signedVoucherUrl(filePath) {
+  if (!filePath) return null;
+  const r = await fetch(`${SB_URL}/storage/v1/object/sign/vouchers/${filePath}`, {
+    method: 'POST',
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: 3600 }),
+  });
+  if (!r.ok) return null;
+  const d = await r.json().catch(() => null);
+  return d && d.signedURL ? `${SB_URL}/storage/v1${d.signedURL}` : null;
+}
+
+app.post('/api/pago/solicitar', upload.single('voucher'), async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const metodo = String(req.body.metodo || '').toLowerCase();
+  const telefono = String(req.body.telefono || '').replace(/\D/g, '').slice(0, 15);
+  if (!['plin', 'yape'].includes(metodo)) return res.status(400).json({ error: 'Método inválido' });
+  if (!telefono) return res.status(400).json({ error: 'Ingresa el número desde el que pagaste' });
+  if (!req.file) return res.status(400).json({ error: 'Falta el voucher' });
+
+  const existing = await sbRest(`solicitudes_pago?user_id=eq.${user.id}&estado=eq.pendiente&select=id`);
+  if (existing && existing.length) return res.status(409).json({ error: 'Ya tienes una solicitud pendiente' });
+
+  const ext = req.file.mimetype.includes('png') ? 'png' : req.file.mimetype.includes('jpg') || req.file.mimetype.includes('jpeg') ? 'jpg' : 'bin';
+  const filePath = `${user.id}/${Date.now()}.${ext}`;
+  const voucherUrl = await uploadVoucher(req.file, filePath);
+  if (!voucherUrl) return res.status(502).json({ error: 'No se pudo subir el voucher' });
+
+  await sbRest('solicitudes_pago', {
+    method: 'POST',
+    body: { user_id: user.id, metodo, telefono, monto: 20, voucher_url: voucherUrl }
+  });
+  res.json({ ok: true });
+});
+
+app.get('/api/pago/mis-solicitudes', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const rows = await sbRest(`solicitudes_pago?user_id=eq.${user.id}&order=creado.desc&select=*`);
+  res.json(rows || []);
+});
+
+app.get('/api/pago/pendientes', async (req, res) => {
+  const user = await authUser(req);
+  if (!user || !isAdmin(user.email)) return res.status(403).json({ error: 'No autorizado' });
+  const rows = await sbRest(`solicitudes_pago?estado=eq.pendiente&order=creado.asc&select=*,perfiles(nombre,email)`);
+  for (const row of (rows || [])) {
+    row.voucher_signed = await signedVoucherUrl(row.voucher_url);
+  }
+  res.json(rows || []);
+});
+
+app.post('/api/pago/aprobar', async (req, res) => {
+  const user = await authUser(req);
+  if (!user || !isAdmin(user.email)) return res.status(403).json({ error: 'No autorizado' });
+  const { id, aprobar, notas } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'Falta id' });
+  const rows = await sbRest(`solicitudes_pago?id=eq.${id}&select=user_id,estado`);
+  if (!rows || !rows.length) return res.status(404).json({ error: 'Solicitud no encontrada' });
+  const target = rows[0];
+  if (target.estado !== 'pendiente') return res.status(409).json({ error: 'Ya fue revisada' });
+
+  const estado = aprobar ? 'aprobado' : 'rechazado';
+  await sbRest(`solicitudes_pago?id=eq.${id}`, {
+    method: 'PATCH',
+    body: { estado, notas_admin: String(notas || '').slice(0, 500), revisado_en: new Date().toISOString() }
+  });
+  if (aprobar) {
+    await sbRest(`perfiles?user_id=eq.${target.user_id}`, { method: 'PATCH', body: { plan: 'pro' } });
+  }
+  res.json({ ok: true, estado });
+});
+
 /* ---------- Groq: transcribir audio del live ---------- */
 app.post('/api/live/transcribe', express.raw({ type: () => true, limit: '15mb' }), async (req, res) => {
   if (!GROQ_KEY) return res.status(503).json({ error: 'Falta GROQ_API_KEY en el servidor' });
@@ -361,7 +456,7 @@ async function esPro(user) {
   return !!(p && p[0] && p[0].plan === 'pro');
 }
 
-app.get('/api/plan', (req, res) => res.json({ monetizacion: !!STRIPE_KEY }));
+app.get('/api/plan', (req, res) => res.json({ monetizacion: true }));
 
 app.post('/api/stripe/checkout', async (req, res) => {
   const user = await authUser(req);
