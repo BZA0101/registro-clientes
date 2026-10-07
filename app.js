@@ -173,6 +173,9 @@ const ICON = {
   tap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11l3.3.6a2 2 0 0 1 1.6 2.3l-.8 4.6a2 2 0 0 1-2 1.5H10a2 2 0 0 1-1.6-.8L5.3 15a1.5 1.5 0 0 1 2.3-1.9L9 14.5"/></svg>',
   play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5v15l12-7.5z"/></svg>',
   link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
 };
 
 /* ---------- Sync a Google Sheets ---------- */
@@ -283,7 +286,7 @@ const initial = n => esc((n.trim()[0] || '?').toUpperCase());
 const status = c => `<span class="status ${ESTADOS[c.estado].cls}"><i></i>${ESTADOS[c.estado].label}</span>`;
 
 const row = (c, sub) => `
-  <button class="row" onclick="go('detalle','${c.id}')">
+  <button class="row" onclick="openClientSheet('${c.id}')">
     <span class="avatar">${initial(c.nombre)}</span>
     <span class="row-main"><span class="name">${esc(c.nombre)}</span>
       <span class="sub">${sub}</span></span>
@@ -1603,6 +1606,83 @@ function guardarUrl() {
   screen = 'ok'; window._okMsg = 'Conexión guardada. Los registros llegarán a tu hoja.'; render();
 }
 
+/* ---------- Bottom sheet de acciones por cliente ---------- */
+let sheetClient = null;
+function openClientSheet(id) {
+  sheetClient = clients.find(c => c.id === id) || null;
+  renderSheet();
+}
+function closeSheet() {
+  sheetClient = null;
+  const s = document.getElementById('bottom-sheet');
+  if (s) { s.classList.remove('open'); setTimeout(() => s.remove(), 260); }
+  document.body.classList.remove('sheet-open');
+}
+function renderSheet() {
+  if (!sheetClient) { closeSheet(); return; }
+  const c = sheetClient;
+  const tel = String(c.telefono || '').replace(/[^\d+]/g, '');
+  let s = document.getElementById('bottom-sheet');
+  if (!s) {
+    s = document.createElement('div');
+    s.id = 'bottom-sheet';
+    s.innerHTML = '<div class="sheet-backdrop" onclick="closeSheet()"></div><div class="sheet-card" id="sheet-card"></div>';
+    document.body.appendChild(s);
+    requestAnimationFrame(() => s.classList.add('open'));
+    document.body.classList.add('sheet-open');
+  }
+  const card = document.getElementById('sheet-card');
+  card.innerHTML = `
+    <div class="sheet-handle"></div>
+    <button class="sheet-close" onclick="closeSheet()">${ICON.close}</button>
+    <div class="sheet-header">
+      <span class="avatar lg">${perfil && perfil.avatar_url ? `<img src="${esc(perfil.avatar_url)}" alt="avatar">` : initial(c.nombre)}</span>
+      <div><b>${esc(c.nombre)}</b><span>${esc(c.telefono)} ${status(c)}</span></div>
+    </div>
+    <div class="sheet-actions">
+      <a class="sheet-action" href="https://wa.me/${tel.replace('+','')}" target="_blank" onclick="closeSheet()">${ICON.wa}<span>WhatsApp</span></a>
+      <a class="sheet-action" href="tel:${tel}" onclick="closeSheet()">${ICON.phone}<span>Llamar</span></a>
+      <button class="sheet-action" onclick="closeSheet();go('detalle','${c.id}')">${ICON.eye}<span>Ver detalle</span></button>
+      <button class="sheet-action danger" onclick="closeSheet();borrarCliente('${c.id}')">${ICON.trash}<span>Eliminar</span></button>
+    </div>`;
+}
+
+/* ---------- Pull to refresh ---------- */
+let ptrStartY = null, ptrPulling = false, ptrEl = null;
+function setupPTR() {
+  if (ptrEl) return;
+  ptrEl = document.createElement('div');
+  ptrEl.id = 'ptr';
+  ptrEl.innerHTML = `${ICON.bolt}<span>Suelta para actualizar</span>`;
+  document.body.appendChild(ptrEl);
+  window.addEventListener('touchstart', e => {
+    if (window.scrollY > 5) return;
+    ptrStartY = e.touches[0].clientY;
+    ptrPulling = false;
+  }, { passive: true });
+  window.addEventListener('touchmove', e => {
+    if (ptrStartY === null || window.scrollY > 5) return;
+    const dy = e.touches[0].clientY - ptrStartY;
+    if (dy > 20) {
+      e.preventDefault();
+      ptrPulling = dy > 100;
+      ptrEl.classList.add('visible');
+      const span = ptrEl.querySelector('span');
+      if (span) span.textContent = ptrPulling ? 'Suelta para actualizar' : 'Sigue jalando…';
+    }
+  }, { passive: false });
+  window.addEventListener('touchend', async () => {
+    ptrEl.classList.remove('visible');
+    if (ptrPulling) {
+      showLoading('Actualizando…');
+      await dbPull();
+      hideLoading();
+      toast('Lista actualizada');
+    }
+    ptrStartY = null; ptrPulling = false;
+  }, { passive: true });
+}
+
 /* ---------- Conexion WhatsApp Web por QR (Baileys) ---------- */
 const waState = { status: 'disconnected', qr: null, jid: null, polling: null, error: null };
 
@@ -1920,6 +2000,7 @@ document.addEventListener('click', e => {
 /* ---------- Arranque: sesion + datos ---------- */
 async function boot() {
   loadMonetizacion();
+  setupPTR();
   if (new URLSearchParams(location.search).get('pago') === 'ok') {
     history.replaceState(null, '', location.pathname);
     window._okMsg = 'Pago recibido — tu plan Pro se activa en segundos.';
