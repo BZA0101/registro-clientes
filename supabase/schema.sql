@@ -9,10 +9,10 @@ create table if not exists perfiles (
   sheet_url text default '',          -- Google Sheets del usuario
   sheet_clave text default '',
   wa_autoreply text default '',       -- auto-respuesta de WhatsApp
-  avatar_url text default '',         -- URL de foto de perfil
   stripe_customer_id text default '',
   created_at timestamptz default now()
 );
+alter table perfiles add column if not exists avatar_url text default '';
 
 -- Clientes / embudo de ventas
 create table if not exists clientes (
