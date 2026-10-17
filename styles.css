@@ -1007,6 +1007,57 @@ body.sheet-open { overflow: hidden; }
 .pro-card b { display: block; font-size: 16px; color: var(--text); margin-bottom: 6px; }
 .pro-card p { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
 
+/* ---------- Convenios ---------- */
+.conv-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--card); border-radius: var(--radius); padding: 14px 16px;
+  margin-bottom: 10px; box-shadow: 0 2px 12px rgba(93,61,36,.05);
+}
+.conv-item b { display: block; font-size: 15px; font-weight: 600; }
+.conv-item span { font-size: 13px; color: var(--muted); }
+.conv-actions { display: flex; gap: 8px; }
+.conv-actions .small, .conv-actions a.small {
+  width: auto; min-width: 60px; height: 36px; padding: 0 12px;
+  font-size: 13px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center;
+}
+.conv-actions .destructive.small { background: transparent; color: var(--bad); width: 36px; padding: 0; }
+.conv-preview {
+  background: #fff; border: 1px solid var(--sep); border-radius: var(--radius);
+  padding: 16px; margin-top: 12px; min-height: 120px;
+  font-size: 15px; line-height: 1.6; white-space: pre-wrap;
+  user-select: text; -webkit-user-select: text;
+}
+.conv-field {
+  background: rgba(124, 159, 96, .18); color: #3d5c2d;
+  border-radius: 6px; padding: 1px 5px; font-weight: 700;
+}
+.conv-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--card); border-radius: var(--radius); padding: 12px 14px;
+  margin-top: 14px;
+}
+.conv-toolbar span { font-size: 14px; color: var(--muted); }
+.conv-toolbar b { color: var(--text); }
+.conv-toolbar select {
+  height: 38px; border-radius: 10px; border: 1px solid var(--sep);
+  background: var(--bg); padding: 0 10px; font-size: 14px;
+}
+.conv-campos { margin-top: 16px; }
+.conv-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent-soft); color: var(--text);
+  border-radius: 50px; padding: 7px 12px; margin: 0 6px 8px 0;
+  font-size: 13px;
+}
+.conv-chip small { color: var(--muted); }
+.conv-chip button { color: var(--bad); width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+.conv-chip button svg { width: 14px; height: 14px; }
+.conv-pdf-source {
+  position: fixed; left: -9999px; top: 0; width: 210mm; padding: 20mm;
+  background: #fff; color: #000; font-family: var(--font); white-space: pre-wrap;
+}
+.conv-pdf-source h2 { font-size: 18px; margin-bottom: 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

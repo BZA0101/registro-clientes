@@ -128,6 +128,49 @@ let liveResumen = null;
 let liveError = '';
 let liveLimite = { restantes: 2, pro: false, cargado: false };
 
+/* ---------- Convenios ---------- */
+let plantillas = [];
+let documentos = [];
+let convForm = {
+  nombre: '',
+  file: null,
+  text: '',
+  html: '',
+  campos: [],
+  saving: false,
+  error: '',
+  ok: false,
+};
+let genForm = {
+  plantillaId: '',
+  dni: '',
+  datos: {},
+  preview: '',
+  loading: false,
+  saving: false,
+  error: '',
+  ok: false,
+};
+const CAMPOS_FIJOS = [
+  { id: 'dni', etiqueta: 'DNI del cliente', fuente: 'api' },
+  { id: 'nombres', etiqueta: 'Nombres del cliente', fuente: 'api' },
+  { id: 'apellido_paterno', etiqueta: 'Apellido paterno', fuente: 'api' },
+  { id: 'apellido_materno', etiqueta: 'Apellido materno', fuente: 'api' },
+  { id: 'nombre_completo', etiqueta: 'Nombre completo', fuente: 'api' },
+  { id: 'sexo', etiqueta: 'Sexo', fuente: 'api' },
+  { id: 'estado_civil', etiqueta: 'Estado civil', fuente: 'api' },
+  { id: 'asesor_nombre', etiqueta: 'Nombre del asesor', fuente: 'perfil' },
+  { id: 'asesor_email', etiqueta: 'Email del asesor', fuente: 'perfil' },
+  { id: 'fecha_actual', etiqueta: 'Fecha de hoy', fuente: 'sistema' },
+];
+const CAMPOS_MANUALES = [
+  { id: 'monto', etiqueta: 'Monto del convenio', fuente: 'manual' },
+  { id: 'numero_cuotas', etiqueta: 'Número de cuotas', fuente: 'manual' },
+  { id: 'fecha_firma', etiqueta: 'Fecha de firma', fuente: 'manual' },
+  { id: 'direccion', etiqueta: 'Dirección del cliente', fuente: 'manual' },
+];
+const TODOS_CAMPOS = [...CAMPOS_FIJOS, ...CAMPOS_MANUALES];
+
 const save = () => {
   localStorage.setItem('clients', JSON.stringify(clients));
   localStorage.setItem('pendingSync', JSON.stringify(pendingSync));
@@ -241,6 +284,12 @@ function go(s, id) {
     showLoading('Cargando, espera por favor…', 'Despertando el servidor, primera vez puede tardar ~40 segundos');
     Promise.all([loadLiveLimite(), loadComps()]).then(() => { hideLoading(); if (screen === 'live') render(); });
   }
+  if (s === 'convenios') {
+    showLoading('Cargando convenios…');
+    Promise.all([loadPlantillas(), loadDocumentos()]).then(() => { hideLoading(); if (screen === 'convenios') render(); });
+  }
+  if (s === 'crear-plantilla' && !convForm.text) resetConvForm();
+  if (s === 'generar-convenio' && !genForm.plantillaId) { go('convenios'); return; }
   render();
 }
 document.querySelectorAll('.tab').forEach(t =>
@@ -1954,15 +2003,415 @@ function borrarTodo() {
   clients = []; pendingSync = []; save(); go('hoy');
 }
 
+/* ---------- Convenios: helpers ---------- */
+async function loadPlantillas() {
+  if (!session) return;
+  const { data, error } = await sb.from('plantillas')
+    .select('*').eq('tipo', 'convenio').order('creado', { ascending: false });
+  if (!error) plantillas = data || [];
+}
+
+async function loadDocumentos() {
+  if (!session) return;
+  const { data, error } = await sb.from('documentos_generados')
+    .select('*, plantilla:plantilla_id(nombre)').order('creado', { ascending: false });
+  if (!error) documentos = data || [];
+}
+
+function resetConvForm() {
+  convForm = { nombre: '', file: null, text: '', html: '', campos: [], saving: false, error: '', ok: false };
+}
+
+function resetGenForm() {
+  genForm = { plantillaId: '', dni: '', datos: {}, preview: '', loading: false, saving: false, error: '', ok: false };
+}
+
+async function onPlantillaFile(input) {
+  const f = input.files[0];
+  if (!f || !f.name.toLowerCase().endsWith('.docx')) {
+    convForm.error = 'Sube un archivo .docx de Word';
+    render(); return;
+  }
+  convForm.file = f; convForm.error = '';
+  try {
+    const arrayBuffer = await f.arrayBuffer();
+    const [raw, html] = await Promise.all([
+      mammoth.extractRawText({ arrayBuffer }),
+      mammoth.convertToHtml({ arrayBuffer }),
+    ]);
+    convForm.text = raw.value || '';
+    convForm.html = html.value || '';
+    if (!convForm.nombre) convForm.nombre = f.name.replace(/\.docx$/i, '');
+  } catch (e) {
+    convForm.error = 'No se pudo leer el Word';
+  }
+  render();
+}
+
+function campoEtiqueta(id) {
+  const c = TODOS_CAMPOS.find(x => x.id === id);
+  return c ? c.etiqueta : id;
+}
+
+function asignarCampo(id) {
+  const sel = window.getSelection();
+  const texto = sel ? sel.toString().trim() : '';
+  if (!texto) { toast('Selecciona un texto en la vista previa'); return; }
+  if (convForm.campos.find(c => c.texto === texto && c.id === id)) return;
+  convForm.campos.push({ id, texto, etiqueta: campoEtiqueta(id) });
+  render();
+}
+
+function quitarCampo(idx) {
+  convForm.campos.splice(idx, 1);
+  render();
+}
+
+function renderPreviewCampos() {
+  if (!convForm.text) return '';
+  let html = esc(convForm.text);
+  for (const c of convForm.campos) {
+    const safe = c.texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp(safe, 'g'), `<span class="conv-field">${esc(c.etiqueta)}</span>`);
+  }
+  return `<div class="conv-preview" onmouseup="capturarSeleccion()" ontouchend="capturarSeleccion()">${html}</div>`;
+}
+
+function capturarSeleccion() {
+  const texto = (window.getSelection() || '').toString().trim();
+  const box = document.getElementById('conv-campo-picker');
+  if (box) box.classList.toggle('hidden', !texto);
+  const txt = document.getElementById('conv-seleccion');
+  if (txt) txt.textContent = texto || '—';
+}
+
+async function guardarPlantilla() {
+  if (!convForm.nombre.trim()) { convForm.error = 'Ponle un nombre a la plantilla'; render(); return; }
+  if (!convForm.file) { convForm.error = 'Sube un archivo Word'; render(); return; }
+  if (!convForm.campos.length) { convForm.error = 'Asigna al menos un campo'; render(); return; }
+  convForm.saving = true; convForm.error = ''; render();
+  try {
+    const ext = 'docx';
+    const path = `${session.user.id}/${Date.now()}_convenio.${ext}`;
+    const { error: upErr } = await sb.storage.from('plantillas_word').upload(path, convForm.file, {
+      upsert: true, contentType: convForm.file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
+    if (upErr) throw new Error(upErr.message);
+    const { data } = sb.storage.from('plantillas_word').getPublicUrl(path);
+    const { error: dbErr } = await sb.from('plantillas').insert({
+      user_id: session.user.id,
+      tipo: 'convenio',
+      nombre: convForm.nombre.trim(),
+      archivo_url: data.publicUrl,
+      texto: convForm.text,
+      campos: convForm.campos,
+    });
+    if (dbErr) throw new Error(dbErr.message);
+    convForm.ok = true;
+    await loadPlantillas();
+  } catch (e) {
+    convForm.error = String(e.message || e);
+  }
+  convForm.saving = false; render();
+}
+
+async function borrarPlantilla(id) {
+  if (!confirm('¿Eliminar esta plantilla?')) return;
+  await sb.from('plantillas').delete().eq('id', id);
+  await loadPlantillas(); render();
+}
+
+async function consultarDNI(dni) {
+  const r = await apiFetch(`/api/cliente/dni/${encodeURIComponent(dni)}`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.error || 'No se pudo consultar el DNI');
+  }
+  return r.json();
+}
+
+function normalizarDatosAPI(data) {
+  const nombreCompleto = [data.apellido_paterno, data.apellido_materno, data.nombres].filter(Boolean).join(' ').trim();
+  return {
+    dni: data.dni || '',
+    nombres: data.nombres || '',
+    apellido_paterno: data.apellido_paterno || '',
+    apellido_materno: data.apellido_materno || '',
+    nombre_completo: nombreCompleto || data.nombre_completo || '',
+    sexo: data.sexo == 1 ? 'Masculino' : data.sexo == 2 ? 'Femenino' : '',
+    estado_civil: data.est_civil || 'Soltero',
+  };
+}
+
+function camposRequeridos(plantilla) {
+  const ids = (plantilla.campos || []).map(c => c.id);
+  return TODOS_CAMPOS.filter(c => ids.includes(c.id));
+}
+
+async function cargarDatosCliente() {
+  genForm.error = ''; genForm.loading = true; render();
+  try {
+    const dni = genForm.dni.replace(/\D/g, '').slice(0, 8);
+    if (dni.length !== 8) throw new Error('DNI debe tener 8 dígitos');
+    const apiData = await consultarDNI(dni);
+    const datos = normalizarDatosAPI(apiData);
+    datos.asesor_nombre = (perfil && perfil.nombre) || session.user.user_metadata?.nombre || '';
+    datos.asesor_email = session.user.email || '';
+    datos.fecha_actual = new Date().toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+    genForm.datos = datos;
+    await construirPreview();
+  } catch (e) {
+    genForm.error = String(e.message || e);
+  }
+  genForm.loading = false; render();
+}
+
+async function construirPreview() {
+  const plantilla = plantillas.find(p => p.id === genForm.plantillaId);
+  if (!plantilla) return;
+  let texto = plantilla.texto || '';
+  const datos = { ...genForm.datos };
+  for (const c of (plantilla.campos || [])) {
+    const val = datos[c.id];
+    if (val === undefined || val === '') continue;
+    const safe = c.texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    texto = texto.replace(new RegExp(safe, 'g'), val);
+  }
+  genForm.preview = texto;
+}
+
+function actualizarDatoManual(id, val) {
+  genForm.datos[id] = val;
+  construirPreview().then(() => render());
+}
+
+function blobToFile(blob, name) {
+  return new File([blob], name, { type: blob.type });
+}
+
+async function generarConvenioDoc() {
+  const plantilla = plantillas.find(p => p.id === genForm.plantillaId);
+  if (!plantilla) return;
+  genForm.saving = true; genForm.error = ''; render();
+  try {
+    await construirPreview();
+    const texto = genForm.preview;
+    const { Document, Packer, Paragraph } = docx;
+    const children = texto.split('\n').map(line => new Paragraph(line || ' '));
+    const doc = new Document({ sections: [{ properties: {}, children }] });
+    const docxBlob = await Packer.toBlob(doc);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'conv-pdf-source';
+    wrapper.innerHTML = `<h2>${esc(plantilla.nombre)}</h2><pre>${esc(texto)}</pre>`;
+    document.body.appendChild(wrapper);
+    const pdfBlob = await html2pdf().set({
+      margin: 10, filename: `${plantilla.nombre}.pdf`,
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    }).from(wrapper).output('blob');
+    wrapper.remove();
+
+    const ts = Date.now();
+    const docxPath = `${session.user.id}/${ts}_convenio.docx`;
+    const pdfPath = `${session.user.id}/${ts}_convenio.pdf`;
+    const [upDocx, upPdf] = await Promise.all([
+      sb.storage.from('documentos_generados').upload(docxPath, blobToFile(docxBlob, 'convenio.docx'), { upsert: true, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
+      sb.storage.from('documentos_generados').upload(pdfPath, blobToFile(pdfBlob, 'convenio.pdf'), { upsert: true, contentType: 'application/pdf' }),
+    ]);
+    if (upDocx.error) throw new Error(upDocx.error.message);
+    if (upPdf.error) throw new Error(upPdf.error.message);
+
+    const { data: docxUrl } = sb.storage.from('documentos_generados').getPublicUrl(docxPath);
+    const { data: pdfUrl } = sb.storage.from('documentos_generados').getPublicUrl(pdfPath);
+
+    await sb.from('documentos_generados').insert({
+      user_id: session.user.id,
+      plantilla_id: plantilla.id,
+      cliente_dni: genForm.datos.dni || genForm.dni,
+      datos: genForm.datos,
+      archivo_docx_url: docxUrl.publicUrl,
+      archivo_pdf_url: pdfUrl.publicUrl,
+      estado: 'finalizado',
+    });
+    genForm.ok = true;
+    await loadDocumentos();
+  } catch (e) {
+    genForm.error = String(e.message || e);
+  }
+  genForm.saving = false; render();
+}
+
+function descargarDocx(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${nombre}.docx`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function descargarPdf(url) {
+  const a = document.createElement('a');
+  a.href = url; a.download = 'convenio.pdf'; a.click();
+}
+
+/* ---------- Convenios: vistas ---------- */
+function viewConvenios() {
+  if (monetizacion && !esPro()) {
+    return `
+      <div class="pro-card convenio-pro">
+        <b>Convenios con datos de RENIEC</b>
+        <p>Sube plantillas de Word, selecciona los textos a reemplazar y genera convenios automáticamente con datos reales del cliente por DNI.</p>
+        <button class="primary" onclick="go('upgrade')">Desbloquear con Pro</button>
+      </div>`;
+  }
+  const plantillaItems = plantillas.map(p => `
+    <div class="conv-item">
+      <div>
+        <b>${esc(p.nombre)}</b>
+        <span>${(p.campos || []).length} campo(s)</span>
+      </div>
+      <div class="conv-actions">
+        <button class="secondary small" onclick="iniciarGenerar('${p.id}')">Usar</button>
+        <button class="destructive small" onclick="borrarPlantilla('${p.id}')">${ICON.trash}</button>
+      </div>
+    </div>`).join('');
+  const docItems = documentos.filter(d => d.plantilla && d.plantilla.nombre).map(d => `
+    <div class="conv-item">
+      <div>
+        <b>${esc(d.plantilla.nombre)}</b>
+        <span>DNI ${esc(d.cliente_dni || '')} · ${fmtFecha(d.creado ? d.creado.slice(0, 10) : '')}</span>
+      </div>
+      <div class="conv-actions">
+        <a class="secondary small" href="${esc(d.archivo_docx_url)}" target="_blank" download>Word</a>
+        <a class="secondary small" href="${esc(d.archivo_pdf_url)}" target="_blank" download>PDF</a>
+      </div>
+    </div>`).join('');
+  return `
+    <button class="primary" onclick="go('crear-plantilla')">${ICON.plus} Nueva plantilla</button>
+    <div class="section-title">Plantillas (${plantillas.length})</div>
+    ${plantillaItems || emptyState('Aún no tienes plantillas')}
+    <div class="section-title">Convenios generados (${documentos.length})</div>
+    ${docItems || emptyState('Aquí aparecerán los convenios finales')}`;
+}
+
+function viewCrearPlantilla() {
+  if (convForm.ok) {
+    return `
+      <div class="ok-flash">
+        <div class="ok-icon">${ICON.check}</div>
+        <b>Plantilla guardada</b>
+        <p>Ya puedes usarla para generar convenios.</p>
+        <button class="primary mt" onclick="resetConvForm(); go('convenios')">Volver a Convenios</button>
+      </div>`;
+  }
+  const picker = convForm.text ? `
+    <div class="conv-toolbar">
+      <span>Selección: <b id="conv-seleccion">—</b></span>
+      <select id="conv-campo-select" class="secondary small" onchange="asignarCampo(this.value); this.value=''">
+        <option value="">Campo aquí...</option>
+        ${TODOS_CAMPOS.map(c => `<option value="${esc(c.id)}">${esc(c.etiqueta)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="hint">Selecciona un texto del documento y elige qué campo lo reemplazará.</div>
+    ${renderPreviewCampos()}
+    <div class="conv-campos">
+      <div class="section-title">Campos asignados</div>
+      ${convForm.campos.length ? convForm.campos.map((c, i) => `
+        <div class="conv-chip">
+          <span>${esc(c.etiqueta)}</span>
+          <small>“${esc(c.texto.slice(0, 40))}”</small>
+          <button onclick="quitarCampo(${i})">${ICON.close}</button>
+        </div>`).join('') : '<p class="hint">Ninguno todavía</p>'}
+    </div>` : '';
+  return `
+    <button class="back" onclick="go('convenios')">${ICON.back} Convenios</button>
+    <div class="section-title">Nueva plantilla de convenio</div>
+    <div class="list form">
+      <label class="input-row"><span>Nombre</span>
+        <input id="conv-nombre" placeholder="Ej. Convenio de pago 30 días" value="${esc(convForm.nombre)}" oninput="convForm.nombre=this.value">
+      </label>
+    </div>
+    <div class="voucher-upload" style="margin-top:10px">
+      <input type="file" id="conv-file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onchange="onPlantillaFile(this)" hidden>
+      <label for="conv-file" class="voucher-label ${convForm.file ? 'has-img' : ''}">
+        ${convForm.file ? `<span>${esc(convForm.file.name)}</span>` : `<span>${ICON.doc} Subir Word (.docx)</span>`}
+      </label>
+    </div>
+    ${convForm.error ? `<div class="form-error">${ICON.alert}${esc(convForm.error)}</div>` : ''}
+    ${picker}
+    ${convForm.text ? `<button class="primary mt" onclick="guardarPlantilla()" ${convForm.saving ? 'disabled' : ''}>${convForm.saving ? 'Guardando…' : 'Guardar plantilla'}</button>` : ''}`;
+}
+
+function viewGenerarConvenio() {
+  if (genForm.ok) {
+    const doc = documentos[0];
+    return `
+      <div class="ok-flash">
+        <div class="ok-icon">${ICON.check}</div>
+        <b>Convenio generado</b>
+        <p>Ya puedes descargarlo.</p>
+        <div class="conv-actions" style="margin-top:20px">
+          ${doc ? `<a class="primary small" href="${esc(doc.archivo_docx_url)}" target="_blank" download>Descargar Word</a>` : ''}
+          ${doc ? `<a class="secondary small" href="${esc(doc.archivo_pdf_url)}" target="_blank" download>Descargar PDF</a>` : ''}
+        </div>
+        <button class="secondary mt" onclick="resetGenForm(); go('convenios')">Volver</button>
+      </div>`;
+  }
+  const plantilla = plantillas.find(p => p.id === genForm.plantillaId);
+  if (!plantilla) return `<button class="back" onclick="go('convenios')">${ICON.back} Convenios</button><div class="empty">Selecciona una plantilla primero</div>`;
+  const requeridos = camposRequeridos(plantilla);
+  const faltanAPI = requeridos.filter(c => c.fuente === 'api' && !genForm.datos[c.id]);
+  const manuales = requeridos.filter(c => c.fuente === 'manual');
+  const preview = genForm.preview ? `<div class="conv-preview final"><pre>${esc(genForm.preview)}</pre></div>` : '';
+  return `
+    <button class="back" onclick="go('convenios')">${ICON.back} Convenios</button>
+    <div class="section-title">${esc(plantilla.nombre)}</div>
+    <div class="list form">
+      <label class="input-row"><span>DNI del cliente</span>
+        <input id="gen-dni" type="tel" inputmode="numeric" maxlength="8" placeholder="12345678" value="${esc(genForm.dni)}" oninput="genForm.dni=this.value">
+      </label>
+    </div>
+    <button class="secondary" onclick="cargarDatosCliente()" ${genForm.loading ? 'disabled' : ''}>${genForm.loading ? 'Consultando…' : 'Buscar datos RENIEC'}</button>
+    ${genForm.error ? `<div class="form-error">${ICON.alert}${esc(genForm.error)}</div>` : ''}
+    ${genForm.datos.dni ? `
+      <div class="section-title">Datos del cliente</div>
+      <div class="list">
+        <div class="info-row"><span>Nombre</span><b>${esc(genForm.datos.nombre_completo || '')}</b></div>
+        <div class="info-row"><span>DNI</span><b>${esc(genForm.datos.dni || '')}</b></div>
+        <div class="info-row"><span>Sexo</span><b>${esc(genForm.datos.sexo || '')}</b></div>
+      </div>` : ''}
+    ${manuales.length ? `
+      <div class="section-title">Datos adicionales</div>
+      <div class="list form">
+        ${manuales.map(c => `
+          <label class="input-row"><span>${esc(c.etiqueta)}</span>
+            <input value="${esc(genForm.datos[c.id] || '')}" oninput="actualizarDatoManual('${c.id}', this.value)">
+          </label>`).join('')}
+      </div>` : ''}
+    ${preview}
+    ${genForm.preview ? `<button class="primary mt" onclick="generarConvenioDoc()" ${genForm.saving ? 'disabled' : ''}>${genForm.saving ? 'Generando…' : 'Generar y guardar convenio'}</button>` : ''}`;
+}
+
+function iniciarGenerar(id) {
+  resetGenForm();
+  genForm.plantillaId = id;
+  go('generar-convenio');
+}
+
 /* ---------- Render ---------- */
 const VIEWS = { hoy: viewHoy, registrar: viewRegistrar, detalle: viewDetalle,
   clientes: viewClientes, live: viewLive, panel: viewPanel, ajustes: viewAjustes,
+  convenios: viewConvenios, 'crear-plantilla': viewCrearPlantilla, 'generar-convenio': viewGenerarConvenio,
   perfil: viewPerfil, upgrade: viewUpgrade, admin: viewAdmin,
   login: viewLogin, ok: () => viewOk(window._okMsg || '') };
 const TITLES = { hoy: 'Hoy', registrar: 'Nuevo cliente', detalle: '',
   clientes: 'Clientes', live: 'TikTok Live', panel: 'Panel', ajustes: 'Ajustes',
+  convenios: 'Convenios', 'crear-plantilla': 'Nueva plantilla', 'generar-convenio': 'Generar convenio',
   perfil: 'Perfil', upgrade: 'Plan Pro', admin: 'Admin', login: 'Entrar', ok: '' };
-const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy' };
+const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy',
+  'crear-plantilla': 'convenios', 'generar-convenio': 'convenios' };
 
 /* Numeros que suben de 0 a su valor (hero, stats, %) */
 function countUp(root) {

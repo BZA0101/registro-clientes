@@ -255,6 +255,31 @@ async function authUser(req) {
   } catch { return null; }
 }
 
+/* ---------- Consulta de DNI/RUC via API-BZA ---------- */
+const API_BZA_URL = process.env.API_BZA_URL || 'https://136.87.181.211.sslip.io';
+const API_BZA_KEY = process.env.API_BZA_KEY || '';
+
+async function apiBzaFetch(ruta) {
+  const url = `${API_BZA_URL}${ruta}${ruta.includes('?') ? '&' : '?'}key=${encodeURIComponent(API_BZA_KEY)}`;
+  return fetch(url, { headers: { Accept: 'application/json' } });
+}
+
+app.get('/api/cliente/dni/:dni', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const dni = String(req.params.dni || '').replace(/\D/g, '').slice(0, 8);
+  if (dni.length !== 8) return res.status(400).json({ error: 'DNI debe tener 8 dígitos' });
+  try {
+    const r = await apiBzaFetch(`/clientes/${dni}`);
+    if (!r.ok) return res.status(r.status).json({ error: 'No encontrado en RENIEC' });
+    const data = await r.json().catch(() => null);
+    if (!data) return res.status(502).json({ error: 'Respuesta inválida de API-BZA' });
+    return res.json(data);
+  } catch (e) {
+    return res.status(502).json({ error: 'API-BZA no responde', detalle: String(e.message || e) });
+  }
+});
+
 /* ---------- WhatsApp Web: conexion por QR, solo lectura de leads (Pro) ---------- */
 const wa = initWhatsApp({ sbRest, crearLeadWa, authUser });
 app.get('/api/whatsapp/status', async (req, res) => {

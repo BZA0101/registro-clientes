@@ -173,7 +173,40 @@ insert into storage.buckets (id, name, public, avif_autodetection, file_size_lim
 values ('avatars', 'avatars', true, false, 2097152, '{image/png,image/jpeg}')
 on conflict (id) do update set public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
 
--- Politicas de Storage para avatares (cada usuario sube/actualiza el suyo; lectura publica)
+-- Plantillas de documentos (convenios y expedientes)
+create table if not exists plantillas (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users on delete cascade default auth.uid(),
+  tipo text not null default 'convenio',      -- convenio | expediente
+  nombre text not null default '',
+  archivo_url text default '',                -- URL del Word original en Storage
+  texto text default '',                     -- texto plano extraido para referencia
+  campos jsonb default '[]',                -- [{id, etiqueta, fuente, ejemplo}]
+  creado timestamptz default now()
+);
+
+-- Documentos generados a partir de plantillas
+create table if not exists documentos_generados (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users on delete cascade default auth.uid(),
+  plantilla_id uuid references plantillas on delete set null,
+  cliente_dni text default '',
+  datos jsonb default '{}',                   -- datos usados para reemplazar
+  archivo_docx_url text default '',
+  archivo_pdf_url text default '',
+  estado text default 'borrador',           -- borrador | finalizado
+  creado timestamptz default now()
+);
+
+alter table plantillas enable row level security;
+alter table documentos_generados enable row level security;
+
+drop policy if exists "own" on plantillas;
+create policy "own" on plantillas for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own" on documentos_generados;
+create policy "own" on documentos_generados for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Buckets de Storage para vouchers y avatares
 drop policy if exists "Avatars public read" on storage.objects;
 create policy "Avatars public read" on storage.objects for select using (bucket_id = 'avatars');
 drop policy if exists "Avatars own insert" on storage.objects;
@@ -182,3 +215,20 @@ drop policy if exists "Avatars own update" on storage.objects;
 create policy "Avatars own update" on storage.objects for update using (bucket_id = 'avatars' and owner = auth.uid());
 drop policy if exists "Avatars own delete" on storage.objects;
 create policy "Avatars own delete" on storage.objects for delete using (bucket_id = 'avatars' and owner = auth.uid());
+
+-- Buckets de Storage para plantillas Word y documentos generados
+insert into storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
+values ('plantillas_word', 'plantillas_word', false, false, 10485760, '{application/vnd.openxmlformats-officedocument.wordprocessingml.document}')
+on conflict (id) do update set public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types)
+values ('documentos_generados', 'documentos_generados', true, false, 15728640, '{application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf}')
+on conflict (id) do update set public=excluded.public, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+
+-- Politicas de Storage para plantillas (solo el dueno puede ver/suber)
+drop policy if exists "Plantillas own all" on storage.objects;
+create policy "Plantillas own all" on storage.objects for all using (bucket_id = 'plantillas_word' and owner = auth.uid()) with check (bucket_id = 'plantillas_word' and owner = auth.uid());
+
+-- Politicas de Storage para documentos generados (solo el dueno)
+drop policy if exists "Documentos own all" on storage.objects;
+create policy "Documentos own all" on storage.objects for all using (bucket_id = 'documentos_generados' and owner = auth.uid()) with check (bucket_id = 'documentos_generados' and owner = auth.uid());
