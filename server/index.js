@@ -809,6 +809,51 @@ app.get('/api/live/limite', async (req, res) => {
   res.json({ pro, restantes: rest });
 });
 
+/* Documentos generados: 5 gratis/dia para free, ilimitados en Pro */
+const DOC_LIMITE = 5;
+
+async function docRestantes(user) {
+  if (await esPro(user)) return 9999;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const rows = await sbRest(`doc_uso?user_id=eq.${user.id}&select=usos,fecha`);
+  if (!rows || !rows.length) return DOC_LIMITE;
+  if (rows[0].fecha !== hoy) return DOC_LIMITE;
+  return Math.max(0, DOC_LIMITE - rows[0].usos);
+}
+
+async function usarDoc(user) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const rows = await sbRest(`doc_uso?user_id=eq.${user.id}&select=usos,fecha`);
+  if (!rows || !rows.length) {
+    await sbRest('doc_uso', { method: 'POST', body: { user_id: user.id, fecha: hoy, usos: 1 } });
+    return 1;
+  }
+  if (rows[0].fecha !== hoy) {
+    await sbRest(`doc_uso?user_id=eq.${user.id}`, { method: 'PATCH', body: { fecha: hoy, usos: 1, actualizado: new Date().toISOString() } });
+    return 1;
+  }
+  const nuevo = rows[0].usos + 1;
+  await sbRest(`doc_uso?user_id=eq.${user.id}`, { method: 'PATCH', body: { usos: nuevo, actualizado: new Date().toISOString() } });
+  return nuevo;
+}
+
+app.get('/api/doc/limite', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  const pro = await esPro(user);
+  res.json({ pro, restantes: await docRestantes(user) });
+});
+
+app.post('/api/doc/usar', async (req, res) => {
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Sin sesión' });
+  if (await esPro(user)) return res.json({ ok: true, pro: true, restantes: 9999 });
+  const rest = await docRestantes(user);
+  if (rest <= 0) return res.status(402).json({ error: 'Límite diario de documentos alcanzado', restantes: 0, upgrade: true });
+  const usos = await usarDoc(user);
+  res.json({ ok: true, restantes: Math.max(0, DOC_LIMITE - usos) });
+});
+
 app.get('/api/live/historial', (req, res) => res.json(data.lives.slice(-20).reverse()));
 
 async function cerrarSesion(usuario, razon) {

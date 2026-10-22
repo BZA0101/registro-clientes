@@ -127,11 +127,14 @@ let livePoll = null;
 let liveResumen = null;
 let liveError = '';
 let liveLimite = { restantes: 2, pro: false, cargado: false };
+let docLimite = { restantes: 5, pro: false, cargado: false };
 
-/* ---------- Convenios ---------- */
+/* ---------- Documentos (convenios y expedientes) ---------- */
 let plantillas = [];
 let documentos = [];
+let docTipo = 'convenio';
 let convForm = {
+  tipo: 'convenio',
   nombre: '',
   file: null,
   text: '',
@@ -272,7 +275,12 @@ function go(s, id) {
   if (s === 'upgrade') upgradeForm = { metodo: 'yape', telefono: '', voucherPreview: null, voucherFile: null, loading: false, error: '', ok: false };
   if (s === 'perfil') {
     const meta = (session && session.user && session.user.user_metadata) || {};
-    perfilForm = { nombre: (perfil && perfil.nombre) || meta.nombre || '', saludo: meta.saludo || 'bienvenido', avatar: null, preview: null, saving: false, error: '', ok: false };
+    perfilForm = {
+      nombre: (perfil && perfil.nombre) || meta.nombre || '',
+      bio: (perfil && perfil.bio) || '', telefono: (perfil && perfil.telefono) || '',
+      empresa: (perfil && perfil.empresa) || '', saludo: meta.saludo || 'bienvenido',
+      avatar: null, preview: null, saving: false, error: '', ok: false };
+    Promise.all([loadDocumentos()]).then(() => { if (screen === 'perfil') render(); });
   }
   if (s === 'admin') { adminPendientes = []; setTimeout(loadPendientes, 50); }
   /* Leads de WhatsApp pueden llegar en cualquier momento: refresca al navegar */
@@ -285,8 +293,8 @@ function go(s, id) {
     Promise.all([loadLiveLimite(), loadComps()]).then(() => { hideLoading(); if (screen === 'live') render(); });
   }
   if (s === 'convenios') {
-    showLoading('Cargando convenios…');
-    Promise.all([loadPlantillas(), loadDocumentos()]).then(() => { hideLoading(); if (screen === 'convenios') render(); });
+    showLoading('Cargando documentos…');
+    Promise.all([loadPlantillas(), loadDocumentos(), loadDocLimite()]).then(() => { hideLoading(); if (screen === 'convenios') render(); });
   }
   if (s === 'crear-plantilla' && !convForm.text) resetConvForm();
   if (s === 'generar-convenio' && !genForm.plantillaId) { go('convenios'); return; }
@@ -572,18 +580,26 @@ function showWelcome() {
   const meta = (session && session.user && session.user.user_metadata) || {};
   const nombreRaw = (perfil && perfil.nombre) || meta.nombre || (session && session.user && session.user.email || '').split('@')[0] || '';
   const nombre = nombreRaw.split(' ')[0].toUpperCase();
-  const saludo = meta.saludo === 'bienvenida' ? 'BIENVENIDA' : 'BIENVENIDO';
+  const h = new Date().getHours();
+  const momento = h < 12 ? 'BUENOS DÍAS' : h < 19 ? 'BUENAS TARDES' : 'BUENAS NOCHES';
+  const frases = [
+    'hoy es un gran día para vender', 'tu próximo cierre está cerca',
+    'a por esos clientes', 'cada seguimiento cuenta', 'vamos por más',
+  ];
+  const frase = frases[Math.floor(Math.random() * frases.length)];
+  const avatarUrl = (perfil && perfil.avatar_url) || '';
   const el = document.createElement('div');
   el.id = 'splash';
   /* cada palabra entra escalonada */
-  const palabras = ['HOLA' + (nombre ? ',' : ''), ...(nombre ? [nombre] : [])]
+  const palabras = [...momento.split(' '), ...(nombre ? [nombre] : [])]
     .map((w, i) => `<span class="w" style="animation-delay:${.35 + i * .15}s">${esc(w)}</span>`).join(' ');
   el.innerHTML = `
+    ${avatarUrl ? `<img class="splash-avatar" src="${esc(avatarUrl)}" alt="">` : `
     <div class="splash-logo">
       <svg id="splash-heart" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5"/><path d="M9.5 21v-6h5v6"/></svg>
-    </div>
+    </div>`}
     <p class="splash-hi" style="text-transform:uppercase">${palabras}</p>
-    <p class="splash-love">${saludo} a tu plataforma de análisis de marketing</p>
+    <p class="splash-love">${esc(frase)}</p>
     <div class="splash-bar"></div>`;
   document.body.appendChild(el);
   const dismiss = () => { el.classList.add('bye'); setTimeout(() => el.remove(), 700); };
@@ -641,8 +657,16 @@ function viewHoy() {
   const pend = seguimientosPendientes();
   const sepHoy = hoy.filter(c => c.estado === 'separado').length;
   const nuevos = clients.filter(c => c.estado === 'nuevo').length;
+  const meta = (session && session.user && session.user.user_metadata) || {};
+  const nombre = esc((((perfil && perfil.nombre) || meta.nombre || (session && session.user.email || '').split('@')[0] || '').split(' ')[0]));
+  const hr = new Date().getHours();
+  const hola = hr < 12 ? 'Buenos días' : hr < 19 ? 'Buenas tardes' : 'Buenas noches';
+  const subt = pend.length ? `Tienes ${pend.length} seguimiento${pend.length > 1 ? 's' : ''} por retomar`
+    : hoy.length ? `Llevas ${hoy.length} cliente${hoy.length > 1 ? 's' : ''} hoy — buen ritmo`
+    : 'Empieza registrando tu primer cliente del día';
   return `
     <div class="hero">
+      <div class="hero-hi"><b>${hola}, ${nombre}</b><span>${subt}</span></div>
       <div class="hero-stats">
         <div><span class="hero-num">${hoy.length}</span><span class="hero-lbl">clientes hoy</span></div>
         <div><span class="hero-num">${sepHoy}</span><span class="hero-lbl">separaciones</span></div>
@@ -1177,10 +1201,18 @@ async function stopLive(usuario) {
 
 async function loadLiveLimite() {
   try {
-    const r = await apiFetch('/api/live/limite');
+    const r = await apiFetch('/api/live/limite', { headers: { Authorization: `Bearer ${session.access_token}` } });
     liveLimite = await r.json();
     liveLimite.cargado = true;
   } catch { liveLimite = { restantes: 2, pro: false, cargado: true }; }
+}
+
+async function loadDocLimite() {
+  try {
+    const r = await apiFetch('/api/doc/limite', { headers: { Authorization: `Bearer ${session.access_token}` } });
+    docLimite = await r.json();
+    docLimite.cargado = true;
+  } catch { docLimite = { restantes: 5, pro: false, cargado: true }; }
 }
 
 async function loadComps() {
@@ -1334,20 +1366,43 @@ function viewPerfil() {
   const saludo = perfilForm.saludo || meta.saludo || 'bienvenido';
   const avatar = perfilForm.preview || (perfil && perfil.avatar_url) || '';
   const initials = initial(nombre) || initial(email) || '?';
+  const bio = (perfil && perfil.bio) || '';
+  const empresa = (perfil && perfil.empresa) || '';
+  const telefono = (perfil && perfil.telefono) || '';
+  const ventas = clients.filter(c => c.estado === 'venta').length;
   return `
   <button class="back" onclick="go('ajustes')">${ICON.back}Ajustes</button>
   <div class="section-title">Mi perfil</div>
   <div class="profile-card" style="--delay:0">
-    <div class="avatar-uploader">
-      ${avatar ? `<img src="${esc(avatar)}" alt="avatar" class="avatar xl">` : `<span class="avatar xl">${initials}</span>`}
-      <input type="file" id="pf-avatar" accept="image/*" onchange="previewAvatar(this)" hidden>
-      <label for="pf-avatar" class="avatar-btn">${ICON.camera} Cambiar foto</label>
+    <div class="ig-head">
+      <div class="avatar-uploader">
+        ${avatar ? `<img src="${esc(avatar)}" alt="avatar" class="avatar xl">` : `<span class="avatar xl">${initials}</span>`}
+        <input type="file" id="pf-avatar" accept="image/*" onchange="previewAvatar(this)" hidden>
+        <label for="pf-avatar" class="avatar-btn">${ICON.camera}</label>
+      </div>
+      <div class="ig-stats">
+        <div><b>${clients.length}</b><span>Clientes</span></div>
+        <div><b>${ventas}</b><span>Ventas</span></div>
+        <div><b>${documentos.length}</b><span>Docs</span></div>
+      </div>
+    </div>
+    <div class="ig-info">
+      <b>${nombre || email.split('@')[0]}</b>
+      ${empresa ? `<span class="ig-meta">${esc(empresa)}</span>` : ''}
+      ${bio ? `<p class="ig-bio">${esc(bio)}</p>` : ''}
+      ${telefono ? `<span class="ig-meta">${ICON.phone} ${esc(telefono)}</span>` : ''}
     </div>
     <div class="plan-badge">${esPro() ? 'Plan Pro' : 'Plan Free'}</div>
   </div>
   <div class="list form" style="--delay:1">
     <label class="input-row"><span>Nombre</span>
       <input id="pf-nombre" value="${nombre}" oninput="perfilForm.nombre=this.value" autocomplete="off"></label>
+    <label class="input-row"><span>Bio</span>
+      <textarea rows="2" placeholder="Cuéntale a tus clientes quién eres" oninput="perfilForm.bio=this.value">${esc(perfilForm.bio)}</textarea></label>
+    <label class="input-row"><span>WhatsApp</span>
+      <input type="tel" placeholder="Ej. 999 888 777" value="${esc(perfilForm.telefono)}" oninput="perfilForm.telefono=this.value" autocomplete="off"></label>
+    <label class="input-row"><span>Empresa</span>
+      <input placeholder="Ej. BZA Digital" value="${esc(perfilForm.empresa)}" oninput="perfilForm.empresa=this.value" autocomplete="off"></label>
     <label class="input-row"><span>Correo</span>
       <input value="${email}" disabled></label>
   </div>
@@ -1385,7 +1440,10 @@ async function guardarPerfil() {
       avatarUrl = data.publicUrl;
     }
     const nombre = perfilForm.nombre !== undefined ? perfilForm.nombre : ((perfil && perfil.nombre) || '');
-    await sb.from('perfiles').update({ nombre, avatar_url: avatarUrl }).eq('user_id', session.user.id);
+    await sb.from('perfiles').update({
+      nombre, avatar_url: avatarUrl,
+      bio: perfilForm.bio || '', telefono: perfilForm.telefono || '', empresa: perfilForm.empresa || '',
+    }).eq('user_id', session.user.id);
     await sb.auth.updateUser({ data: { saludo: perfilForm.saludo } });
     await loadPerfil();
     perfilForm.ok = true;
@@ -1430,6 +1488,7 @@ function viewUpgrade() {
     <div class="why-title">¿Qué desbloqueas con Pro?</div>
     <div class="plan-features">
       <div class="plan-feat">${ICON.check}<span><b>Lives ilimitados</b> de TikTok al día</span></div>
+      <div class="plan-feat">${ICON.check}<span><b>Documentos ilimitados</b>: convenios y expedientes</span></div>
       <div class="plan-feat">${ICON.check}<span><b>Leads automáticos</b> de WhatsApp Web sin apps</span></div>
       <div class="plan-feat">${ICON.check}<span><b>Transcripción + resumen IA</b> de cada live</span></div>
       <div class="plan-feat">${ICON.check}<span><b>Competidores</b> y comparativa de métricas</span></div>
@@ -1440,7 +1499,9 @@ function viewUpgrade() {
     <div class="pc-row pc-head"><span>Función</span><span>Free</span><span>Pro</span></div>
     <div class="pc-row"><span>Registrar clientes</span><span class="pc-y">✓</span><span class="pc-y">✓</span></div>
     <div class="pc-row"><span>2 lives gratis / día</span><span class="pc-y">✓</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>5 documentos gratis / día</span><span class="pc-y">✓</span><span class="pc-y">✓</span></div>
     <div class="pc-row"><span>Lives ilimitados</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
+    <div class="pc-row"><span>Documentos ilimitados</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
     <div class="pc-row"><span>Leads WhatsApp automático</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
     <div class="pc-row"><span>Resumen IA del live</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
     <div class="pc-row"><span>Análisis de competidores</span><span class="pc-n">—</span><span class="pc-y">✓</span></div>
@@ -2003,23 +2064,26 @@ function borrarTodo() {
   clients = []; pendingSync = []; save(); go('hoy');
 }
 
-/* ---------- Convenios: helpers ---------- */
+/* ---------- Documentos: helpers ---------- */
 async function loadPlantillas() {
   if (!session) return;
   const { data, error } = await sb.from('plantillas')
-    .select('*').eq('tipo', 'convenio').order('creado', { ascending: false });
+    .select('*').order('creado', { ascending: false });
   if (!error) plantillas = data || [];
 }
 
 async function loadDocumentos() {
   if (!session) return;
   const { data, error } = await sb.from('documentos_generados')
-    .select('*, plantilla:plantilla_id(nombre)').order('creado', { ascending: false });
+    .select('*, plantilla:plantilla_id(nombre,tipo)').order('creado', { ascending: false });
   if (!error) documentos = data || [];
 }
 
+function setDocTipo(t) { docTipo = t; render(); }
+function setConvTipo(t) { convForm.tipo = t; render(); }
+
 function resetConvForm() {
-  convForm = { nombre: '', file: null, text: '', html: '', campos: [], saving: false, error: '', ok: false };
+  convForm = { tipo: docTipo, nombre: '', file: null, text: '', html: '', campos: [], saving: false, error: '', ok: false };
 }
 
 function resetGenForm() {
@@ -2092,7 +2156,7 @@ async function guardarPlantilla() {
   convForm.saving = true; convForm.error = ''; render();
   try {
     const ext = 'docx';
-    const path = `${session.user.id}/${Date.now()}_convenio.${ext}`;
+    const path = `${session.user.id}/${Date.now()}_${convForm.tipo}.${ext}`;
     const { error: upErr } = await sb.storage.from('plantillas_word').upload(path, convForm.file, {
       upsert: true, contentType: convForm.file.type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     });
@@ -2100,7 +2164,7 @@ async function guardarPlantilla() {
     const { data } = sb.storage.from('plantillas_word').getPublicUrl(path);
     const { error: dbErr } = await sb.from('plantillas').insert({
       user_id: session.user.id,
-      tipo: 'convenio',
+      tipo: convForm.tipo,
       nombre: convForm.nombre.trim(),
       archivo_url: data.publicUrl,
       texto: convForm.text,
@@ -2196,6 +2260,16 @@ async function generarConvenioDoc() {
   if (!plantilla) return;
   genForm.saving = true; genForm.error = ''; render();
   try {
+    if (monetizacion && !esPro()) {
+      const r = await apiFetch('/api/doc/usar', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
+      if (r.status === 402) {
+        genForm.error = 'Llegaste al límite de 5 documentos gratis hoy. Con Pro son ilimitados.';
+        docLimite.restantes = 0;
+        genForm.saving = false; render(); return;
+      }
+      const j = await r.json().catch(() => ({}));
+      if (j.restantes !== undefined) docLimite.restantes = j.restantes;
+    }
     await construirPreview();
     const texto = genForm.preview;
     const { Document, Packer, Paragraph } = docx;
@@ -2215,11 +2289,12 @@ async function generarConvenioDoc() {
     wrapper.remove();
 
     const ts = Date.now();
-    const docxPath = `${session.user.id}/${ts}_convenio.docx`;
-    const pdfPath = `${session.user.id}/${ts}_convenio.pdf`;
+    const tipo = plantilla.tipo || 'convenio';
+    const docxPath = `${session.user.id}/${ts}_${tipo}.docx`;
+    const pdfPath = `${session.user.id}/${ts}_${tipo}.pdf`;
     const [upDocx, upPdf] = await Promise.all([
-      sb.storage.from('documentos_generados').upload(docxPath, blobToFile(docxBlob, 'convenio.docx'), { upsert: true, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
-      sb.storage.from('documentos_generados').upload(pdfPath, blobToFile(pdfBlob, 'convenio.pdf'), { upsert: true, contentType: 'application/pdf' }),
+      sb.storage.from('documentos_generados').upload(docxPath, blobToFile(docxBlob, 'documento.docx'), { upsert: true, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }),
+      sb.storage.from('documentos_generados').upload(pdfPath, blobToFile(pdfBlob, 'documento.pdf'), { upsert: true, contentType: 'application/pdf' }),
     ]);
     if (upDocx.error) throw new Error(upDocx.error.message);
     if (upPdf.error) throw new Error(upPdf.error.message);
@@ -2230,6 +2305,7 @@ async function generarConvenioDoc() {
     await sb.from('documentos_generados').insert({
       user_id: session.user.id,
       plantilla_id: plantilla.id,
+      tipo,
       cliente_dni: genForm.datos.dni || genForm.dni,
       datos: genForm.datos,
       archivo_docx_url: docxUrl.publicUrl,
@@ -2253,20 +2329,28 @@ function descargarDocx(blob, nombre) {
 
 function descargarPdf(url) {
   const a = document.createElement('a');
-  a.href = url; a.download = 'convenio.pdf'; a.click();
+  a.href = url; a.download = 'documento.pdf'; a.click();
 }
 
-/* ---------- Convenios: vistas ---------- */
+/* ---------- Documentos: vistas ---------- */
 function viewConvenios() {
   if (monetizacion && !esPro()) {
     return `
       <div class="pro-card convenio-pro">
-        <b>Convenios con datos de RENIEC</b>
-        <p>Sube plantillas de Word, selecciona los textos a reemplazar y genera convenios automáticamente con datos reales del cliente por DNI.</p>
+        <b>Documentos con datos de RENIEC</b>
+        <p>Sube plantillas de Word (convenios o expedientes), selecciona los textos a reemplazar y genera documentos automáticamente con datos reales del cliente por DNI.</p>
         <button class="primary" onclick="go('upgrade')">Desbloquear con Pro</button>
       </div>`;
   }
-  const plantillaItems = plantillas.map(p => `
+  const tipoLabel = docTipo === 'expediente' ? 'expedientes' : 'convenios';
+  const tipoTitle = docTipo === 'expediente' ? 'Expedientes' : 'Convenios';
+  const rest = docLimite.cargado ? Number(docLimite.restantes) : NaN;
+  const freeBadge = monetizacion && !esPro() && !isNaN(rest)
+    ? `<div class="live-limit">Hoy te quedan <b>${rest}</b> documentos gratis</div>`
+    : '';
+  const plantillasTipo = plantillas.filter(p => (p.tipo || 'convenio') === docTipo);
+  const docsTipo = documentos.filter(d => (d.tipo || (d.plantilla && d.plantilla.tipo) || 'convenio') === docTipo);
+  const plantillaItems = plantillasTipo.map(p => `
     <div class="conv-item">
       <div>
         <b>${esc(p.nombre)}</b>
@@ -2277,7 +2361,7 @@ function viewConvenios() {
         <button class="destructive small" onclick="borrarPlantilla('${p.id}')">${ICON.trash}</button>
       </div>
     </div>`).join('');
-  const docItems = documentos.filter(d => d.plantilla && d.plantilla.nombre).map(d => `
+  const docItems = docsTipo.filter(d => d.plantilla && d.plantilla.nombre).map(d => `
     <div class="conv-item">
       <div>
         <b>${esc(d.plantilla.nombre)}</b>
@@ -2289,11 +2373,16 @@ function viewConvenios() {
       </div>
     </div>`).join('');
   return `
+    <div class="seg2" data-on="${docTipo === 'expediente' ? 1 : 0}">
+      <button class="${docTipo === 'convenio' ? 'on' : ''}" onclick="setDocTipo('convenio')">Convenios</button>
+      <button class="${docTipo === 'expediente' ? 'on' : ''}" onclick="setDocTipo('expediente')">Expedientes</button>
+    </div>
+    ${freeBadge}
     <button class="primary" onclick="go('crear-plantilla')">${ICON.plus} Nueva plantilla</button>
-    <div class="section-title">Plantillas (${plantillas.length})</div>
-    ${plantillaItems || emptyState('Aún no tienes plantillas')}
-    <div class="section-title">Convenios generados (${documentos.length})</div>
-    ${docItems || emptyState('Aquí aparecerán los convenios finales')}`;
+    <div class="section-title">Plantillas de ${tipoLabel} (${plantillasTipo.length})</div>
+    ${plantillaItems || emptyState(`Aún no tienes plantillas de ${tipoLabel}`)}
+    <div class="section-title">${tipoTitle} generados (${docsTipo.length})</div>
+    ${docItems || emptyState(`Aquí aparecerán los ${tipoLabel} finales`)}`;
 }
 
 function viewCrearPlantilla() {
@@ -2302,8 +2391,8 @@ function viewCrearPlantilla() {
       <div class="ok-flash">
         <div class="ok-icon">${ICON.check}</div>
         <b>Plantilla guardada</b>
-        <p>Ya puedes usarla para generar convenios.</p>
-        <button class="primary mt" onclick="resetConvForm(); go('convenios')">Volver a Convenios</button>
+        <p>Ya puedes usarla para generar documentos.</p>
+        <button class="primary mt" onclick="resetConvForm(); go('convenios')">Volver a Documentación</button>
       </div>`;
   }
   const picker = convForm.text ? `
@@ -2326,11 +2415,15 @@ function viewCrearPlantilla() {
         </div>`).join('') : '<p class="hint">Ninguno todavía</p>'}
     </div>` : '';
   return `
-    <button class="back" onclick="go('convenios')">${ICON.back} Convenios</button>
-    <div class="section-title">Nueva plantilla de convenio</div>
+    <button class="back" onclick="go('convenios')">${ICON.back} Documentación</button>
+    <div class="section-title">Nueva plantilla</div>
+    <div class="seg2" data-on="${convForm.tipo === 'expediente' ? 1 : 0}">
+      <button class="${convForm.tipo === 'convenio' ? 'on' : ''}" onclick="setConvTipo('convenio')">Convenio</button>
+      <button class="${convForm.tipo === 'expediente' ? 'on' : ''}" onclick="setConvTipo('expediente')">Expediente</button>
+    </div>
     <div class="list form">
       <label class="input-row"><span>Nombre</span>
-        <input id="conv-nombre" placeholder="Ej. Convenio de pago 30 días" value="${esc(convForm.nombre)}" oninput="convForm.nombre=this.value">
+        <input id="conv-nombre" placeholder="Ej. ${convForm.tipo === 'expediente' ? 'Expediente judicial 2026' : 'Convenio de pago 30 días'}" value="${esc(convForm.nombre)}" oninput="convForm.nombre=this.value">
       </label>
     </div>
     <div class="voucher-upload" style="margin-top:10px">
@@ -2350,7 +2443,7 @@ function viewGenerarConvenio() {
     return `
       <div class="ok-flash">
         <div class="ok-icon">${ICON.check}</div>
-        <b>Convenio generado</b>
+        <b>Documento generado</b>
         <p>Ya puedes descargarlo.</p>
         <div class="conv-actions" style="margin-top:20px">
           ${doc ? `<a class="primary small" href="${esc(doc.archivo_docx_url)}" target="_blank" download>Descargar Word</a>` : ''}
@@ -2360,13 +2453,23 @@ function viewGenerarConvenio() {
       </div>`;
   }
   const plantilla = plantillas.find(p => p.id === genForm.plantillaId);
-  if (!plantilla) return `<button class="back" onclick="go('convenios')">${ICON.back} Convenios</button><div class="empty">Selecciona una plantilla primero</div>`;
+  if (!plantilla) return `<button class="back" onclick="go('convenios')">${ICON.back} Documentación</button><div class="empty">Selecciona una plantilla primero</div>`;
+  const rest = docLimite.cargado ? Number(docLimite.restantes) : NaN;
+  if (monetizacion && !esPro() && !isNaN(rest) && rest <= 0) {
+    return `
+      <button class="back" onclick="go('convenios')">${ICON.back} Documentación</button>
+      <div class="pro-card convenio-pro">
+        <b>Llegaste al límite de hoy</b>
+        <p>Usaste tus 5 documentos gratis de hoy. Con Pro generas convenios y expedientes ilimitados.</p>
+        <button class="primary" onclick="go('upgrade')">Desbloquear con Pro</button>
+      </div>`;
+  }
   const requeridos = camposRequeridos(plantilla);
   const faltanAPI = requeridos.filter(c => c.fuente === 'api' && !genForm.datos[c.id]);
   const manuales = requeridos.filter(c => c.fuente === 'manual');
   const preview = genForm.preview ? `<div class="conv-preview final"><pre>${esc(genForm.preview)}</pre></div>` : '';
   return `
-    <button class="back" onclick="go('convenios')">${ICON.back} Convenios</button>
+    <button class="back" onclick="go('convenios')">${ICON.back} Documentación</button>
     <div class="section-title">${esc(plantilla.nombre)}</div>
     <div class="list form">
       <label class="input-row"><span>DNI del cliente</span>
@@ -2391,12 +2494,14 @@ function viewGenerarConvenio() {
           </label>`).join('')}
       </div>` : ''}
     ${preview}
-    ${genForm.preview ? `<button class="primary mt" onclick="generarConvenioDoc()" ${genForm.saving ? 'disabled' : ''}>${genForm.saving ? 'Generando…' : 'Generar y guardar convenio'}</button>` : ''}`;
+    ${genForm.preview ? `<button class="primary mt" onclick="generarConvenioDoc()" ${genForm.saving ? 'disabled' : ''}>${genForm.saving ? 'Generando…' : 'Generar y guardar documento'}</button>` : ''}`;
 }
 
 function iniciarGenerar(id) {
   resetGenForm();
   genForm.plantillaId = id;
+  const p = plantillas.find(x => x.id === id);
+  if (p && p.tipo) docTipo = p.tipo;
   go('generar-convenio');
 }
 
@@ -2408,7 +2513,7 @@ const VIEWS = { hoy: viewHoy, registrar: viewRegistrar, detalle: viewDetalle,
   login: viewLogin, ok: () => viewOk(window._okMsg || '') };
 const TITLES = { hoy: 'Hoy', registrar: 'Nuevo cliente', detalle: '',
   clientes: 'Clientes', live: 'TikTok Live', panel: 'Panel', ajustes: 'Ajustes',
-  convenios: 'Convenios', 'crear-plantilla': 'Nueva plantilla', 'generar-convenio': 'Generar convenio',
+  convenios: 'Documentación', 'crear-plantilla': 'Nueva plantilla', 'generar-convenio': 'Generar documento',
   perfil: 'Perfil', upgrade: 'Plan Pro', admin: 'Admin', login: 'Entrar', ok: '' };
 const TAB_OF = { registrar: 'hoy', detalle: 'clientes', ok: 'hoy',
   'crear-plantilla': 'convenios', 'generar-convenio': 'convenios' };
@@ -2448,6 +2553,13 @@ function render() {
   else if (waState.polling) { clearInterval(waState.polling); waState.polling = null; }
   document.body.classList.toggle('is-login', screen === 'login');
   document.getElementById('tabbar').classList.toggle('hidden', screen === 'login');
+  const av = document.getElementById('top-avatar');
+  if (session && screen !== 'login') {
+    const nm = (perfil && perfil.nombre) || session.user.user_metadata?.nombre || session.user.email || '';
+    const url = perfilForm.preview || (perfil && perfil.avatar_url) || '';
+    av.innerHTML = url ? `<img src="${esc(url)}" alt="perfil">` : `<span>${initial(nm)}</span>`;
+    av.classList.remove('hidden');
+  } else av.classList.add('hidden');
   const tab = TAB_OF[screen] || screen;
   document.querySelectorAll('.tab').forEach(t =>
     t.classList.toggle('active', t.dataset.screen === tab));

@@ -13,6 +13,9 @@ create table if not exists perfiles (
   created_at timestamptz default now()
 );
 alter table perfiles add column if not exists avatar_url text default '';
+alter table perfiles add column if not exists bio text default '';
+alter table perfiles add column if not exists telefono text default '';
+alter table perfiles add column if not exists empresa text default '';
 
 -- Clientes / embudo de ventas
 create table if not exists clientes (
@@ -83,6 +86,17 @@ create table if not exists live_uso (
 alter table live_uso enable row level security;
 drop policy if exists "own" on live_uso;
 create policy "own" on live_uso for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Uso diario de generacion de documentos (5 gratis por dia para usuarios free)
+create table if not exists doc_uso (
+  user_id uuid primary key references auth.users on delete cascade,
+  fecha text not null,          -- YYYY-MM-DD
+  usos int default 0,
+  actualizado timestamptz default now()
+);
+alter table doc_uso enable row level security;
+drop policy if exists "own" on doc_uso;
+create policy "own" on doc_uso for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- Suscripciones push por usuario
 create table if not exists push_subs (
@@ -197,6 +211,7 @@ create table if not exists documentos_generados (
   estado text default 'borrador',           -- borrador | finalizado
   creado timestamptz default now()
 );
+alter table documentos_generados add column if not exists tipo text not null default 'convenio';  -- convenio | expediente
 
 alter table plantillas enable row level security;
 alter table documentos_generados enable row level security;
